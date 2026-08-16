@@ -1,4 +1,4 @@
-# n8n-nodes-socialrobot
+# @socialrobot-io/n8n-nodes-socialrobot
 
 This is an [n8n](https://n8n.io/) community node. It lets you use [SocialRobot.io](https://socialrobot.io) in your n8n workflows.
 
@@ -22,7 +22,7 @@ In short:
 
 1. In n8n, go to **Settings → Community Nodes**.
 2. Select **Install**.
-3. Enter `n8n-nodes-socialrobot` in the **npm package name** field.
+3. Enter `@socialrobot-io/n8n-nodes-socialrobot` in the **npm package name** field.
 4. Select **Install**.
 
 After installation, **SocialRobot** appears in the node panel under the Input category.

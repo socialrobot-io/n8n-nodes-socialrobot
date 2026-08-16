@@ -1,5 +1,5 @@
 {
-	"name": "n8n-nodes-socialrobot",
+	"name": "@socialrobot-io/n8n-nodes-socialrobot",
 	"version": "1.0.0",
 	"description": "n8n community node for SocialRobot.io: schedule and publish posts across Instagram, X, LinkedIn, TikTok, Facebook, Pinterest, Bluesky, Mastodon, and Threads",
 	"license": "MIT",
@@ -32,6 +32,9 @@
 	"files": [
 		"dist"
 	],
+	"publishConfig": {
+		"access": "public"
+	},
 	"n8n": {
 		"n8nNodesApiVersion": 1,
 		"strict": true,
