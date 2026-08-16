@@ -13,32 +13,34 @@ const showForMedia = { resource: ['media'] };
 // ---------------------------------------------------------------------------
 // Account resource locator (used by every platform target)
 // ---------------------------------------------------------------------------
-export const accountIdSelect: INodeProperties = {
-	displayName: 'Account',
-	name: 'accountId',
-	type: 'resourceLocator',
-	default: { mode: 'list', value: '' },
-	required: true,
-	description: 'The connected SocialRobot account to publish to',
-	modes: [
-		{
-			displayName: 'From List',
-			name: 'list',
-			type: 'list',
-			placeholder: 'Select an account...',
-			typeOptions: {
-				searchListMethod: 'getAccounts',
-				searchable: true,
+export function accountIdSelect(searchListMethod: string): INodeProperties {
+	return {
+		displayName: 'Account',
+		name: 'accountId',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
+		required: true,
+		description: 'The connected SocialRobot account to publish to',
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				placeholder: 'Select an account...',
+				typeOptions: {
+					searchListMethod,
+					searchable: true,
+				},
 			},
-		},
-		{
-			displayName: 'By ID',
-			name: 'id',
-			type: 'string',
-			placeholder: 'e.g. instagram-account-id-123',
-		},
-	],
-};
+			{
+				displayName: 'By ID',
+				name: 'id',
+				type: 'string',
+				placeholder: 'e.g. instagram-account-id-123',
+			},
+		],
+	};
+}
 
 // ---------------------------------------------------------------------------
 // Media collection (shared by the platforms that accept a `medias` array)
@@ -116,7 +118,7 @@ const instagramTargets: INodeProperties = {
 			default: '',
 			description: 'Cover image URL for video posts (optional)',
 		},
-		{ ...accountIdSelect, displayName: 'Instagram Account' },
+		{ ...accountIdSelect('getInstagramAccounts'), displayName: 'Instagram Account' },
 		{
 			displayName: 'Media Type',
 			name: 'mediaType',
@@ -156,7 +158,7 @@ const twitterTargets: INodeProperties = {
 	description: 'Publish this post to one or more X (Twitter) accounts',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect, displayName: 'X Account' },
+		{ ...accountIdSelect('getTwitterAccounts'), displayName: 'X Account' },
 		{
 			displayName: 'Text',
 			name: 'caption',
@@ -181,7 +183,7 @@ const linkedinTargets: INodeProperties = {
 	description: 'Publish this post to one or more LinkedIn accounts or pages',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect, displayName: 'LinkedIn Account' },
+		{ ...accountIdSelect('getLinkedinAccounts'), displayName: 'LinkedIn Account' },
 		{
 			displayName: 'Text',
 			name: 'caption',
@@ -224,7 +226,7 @@ const blueskyTargets: INodeProperties = {
 	description: 'Publish this post to one or more Bluesky accounts',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect, displayName: 'Bluesky Account' },
+		{ ...accountIdSelect('getBlueskyAccounts'), displayName: 'Bluesky Account' },
 		{
 			displayName: 'Text',
 			name: 'caption',
@@ -270,7 +272,7 @@ const pinterestTargets: INodeProperties = {
 			default: '',
 			description: 'Destination URL for the pin',
 		},
-		{ ...accountIdSelect, displayName: 'Pinterest Account' },
+		{ ...accountIdSelect('getPinterestAccounts'), displayName: 'Pinterest Account' },
 		{
 			displayName: 'Title',
 			name: 'title',
@@ -294,7 +296,7 @@ const tiktokTargets: INodeProperties = {
 	description: 'Publish this post to one or more TikTok accounts',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect, displayName: 'TikTok Account' },
+		{ ...accountIdSelect('getTiktokAccounts'), displayName: 'TikTok Account' },
 		{
 			displayName: 'Caption',
 			name: 'caption',
@@ -341,7 +343,7 @@ const mastodonTargets: INodeProperties = {
 	description: 'Publish this post to one or more Mastodon accounts',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect, displayName: 'Mastodon Account' },
+		{ ...accountIdSelect('getMastodonAccounts'), displayName: 'Mastodon Account' },
 		{
 			displayName: 'Text',
 			name: 'caption',
@@ -378,7 +380,7 @@ const threadsTargets: INodeProperties = {
 	description: 'Publish this post to one or more Threads accounts',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect, displayName: 'Threads Account' },
+		{ ...accountIdSelect('getThreadsAccounts'), displayName: 'Threads Account' },
 		{
 			displayName: 'Caption',
 			name: 'caption',
@@ -403,7 +405,7 @@ const facebookTargets: INodeProperties = {
 	description: 'Publish this post to one or more Facebook pages',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect, displayName: 'Facebook Page' },
+		{ ...accountIdSelect('getFacebookAccounts'), displayName: 'Facebook Page' },
 		{
 			displayName: 'Caption',
 			name: 'caption',

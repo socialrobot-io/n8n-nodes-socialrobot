@@ -9,7 +9,18 @@ import {
 } from 'n8n-workflow';
 import { accountDescription, mediaDescription, postDescription } from './descriptions';
 import { buildCreateBody, buildListQuery } from './GenericFunctions';
-import { getAccountsListSearch, socialRobotApiRequest } from './transport';
+import {
+	getBlueskyAccounts,
+	getFacebookAccounts,
+	getInstagramAccounts,
+	getLinkedinAccounts,
+	getMastodonAccounts,
+	getPinterestAccounts,
+	getThreadsAccounts,
+	getTiktokAccounts,
+	getTwitterAccounts,
+	socialRobotApiRequest,
+} from './transport';
 
 /**
  * Fetch every post across all pages when Return All is enabled. The SocialRobot
@@ -77,7 +88,15 @@ export class SocialRobot implements INodeType {
 
 	methods = {
 		listSearch: {
-			getAccounts: getAccountsListSearch,
+			getInstagramAccounts,
+			getPinterestAccounts,
+			getTwitterAccounts,
+			getLinkedinAccounts,
+			getBlueskyAccounts,
+			getTiktokAccounts,
+			getMastodonAccounts,
+			getThreadsAccounts,
+			getFacebookAccounts,
 		},
 	};
 

@@ -45,33 +45,61 @@ export async function socialRobotApiRequest(
 }
 
 /**
- * List search source for the account resource locator. Returns the connected
- * accounts for the authenticated user so workflows can pick accounts by name.
+ * Build a list-search source that only surfaces connected accounts for a
+ * single platform, so an Instagram target only offers Instagram accounts and
+ * an X target only offers X accounts. The optional `filter` is the text the
+ * user types in the picker.
  */
-export async function getAccountsListSearch(
-	this: ILoadOptionsFunctions,
-): Promise<INodeListSearchResult> {
-	const responseData = (await socialRobotApiRequest.call(
-		this,
-		'GET',
-		'/accounts',
-	)) as IDataObject[];
+function getAccountsListSearchFactory(platform: string) {
+	return async function (
+		this: ILoadOptionsFunctions,
+		filter?: string,
+	): Promise<INodeListSearchResult> {
+		const responseData = (await socialRobotApiRequest.call(
+			this,
+			'GET',
+			'/accounts',
+		)) as IDataObject[];
 
-	const accounts = Array.isArray(responseData) ? responseData : [];
+		let accounts = Array.isArray(responseData) ? responseData : [];
+		accounts = accounts.filter((account) => account.platform === platform);
 
-	const results: INodeListSearchItems[] = accounts.map((account) => {
-		const displayName = (account.displayName as string) || '';
-		const handle = (account.handle as string) || '';
-		const platform = (account.platform as string) || '';
-		const label = [displayName, handle].filter(Boolean).join(' · ') || (account.id as string);
+		if (filter) {
+			const needle = filter.toLowerCase();
+			accounts = accounts.filter((account) =>
+				[account.displayName, account.handle, account.platform].some((value) =>
+					String(value ?? '')
+						.toLowerCase()
+						.includes(needle),
+				),
+			);
+		}
 
-		return {
-			name: label,
-			value: account.id as string,
-			description: platform,
-			url: (account.profileImage as string) || undefined,
-		};
-	});
+		const results: INodeListSearchItems[] = accounts.map((account) => {
+			const displayName = (account.displayName as string) || '';
+			const handle = (account.handle as string) || '';
+			const label = [displayName, handle ? `@${handle}` : null]
+				.filter(Boolean)
+				.join(' · ');
 
-	return { results };
+			return {
+				name: label || (account.id as string),
+				value: account.id as string,
+				description: platform,
+				url: (account.profileImage as string) || undefined,
+			};
+		});
+
+		return { results };
+	};
 }
+
+export const getInstagramAccounts = getAccountsListSearchFactory('instagram');
+export const getPinterestAccounts = getAccountsListSearchFactory('pinterest');
+export const getTwitterAccounts = getAccountsListSearchFactory('x');
+export const getLinkedinAccounts = getAccountsListSearchFactory('linkedin');
+export const getBlueskyAccounts = getAccountsListSearchFactory('bluesky');
+export const getTiktokAccounts = getAccountsListSearchFactory('tiktok');
+export const getMastodonAccounts = getAccountsListSearchFactory('mastodon');
+export const getThreadsAccounts = getAccountsListSearchFactory('threads');
+export const getFacebookAccounts = getAccountsListSearchFactory('facebook');
