@@ -45,7 +45,7 @@ export class SocialRobot implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SocialRobot',
 		name: 'socialRobot',
-		icon: { light: 'file:socialrobot.svg', dark: 'file:socialrobot.dark.svg' },
+		icon: { light: 'file:socialrobot.png', dark: 'file:socialrobot.dark.png' },
 		group: ['input'],
 		version: 1,
 		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"]}}',

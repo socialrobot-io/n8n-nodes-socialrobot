@@ -12,8 +12,8 @@ export class SocialRobotApi implements ICredentialType {
 	displayName = 'SocialRobot API';
 
 	icon: Icon = {
-		light: 'file:../nodes/SocialRobot/socialrobot.svg',
-		dark: 'file:../nodes/SocialRobot/socialrobot.dark.svg',
+		light: 'file:../nodes/SocialRobot/socialrobot.png',
+		dark: 'file:../nodes/SocialRobot/socialrobot.dark.png',
 	};
 
 	documentationUrl = 'https://socialrobot.io';
