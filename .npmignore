@@ -1,0 +1,11 @@
+node_modules/
+.github/
+credentials/
+nodes/
+src/
+.eslintrc.js
+.prettierrc.js
+.gitignore
+tsconfig.json
+CHANGELOG.md
+CODE_OF_CONDUCT.md
