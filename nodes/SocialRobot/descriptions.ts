@@ -19,8 +19,7 @@ export function accountIdSelect(searchListMethod: string): INodeProperties {
 		name: 'accountId',
 		type: 'resourceLocator',
 		default: { mode: 'list', value: '' },
-		required: true,
-		description: 'The connected SocialRobot account to publish to',
+		description: 'The connected SocialRobot account to publish to. Required when this target is added.',
 		modes: [
 			{
 				displayName: 'From List',
@@ -134,8 +133,7 @@ const instagramTargets: INodeProperties = {
 			name: 'mediaUrl',
 			type: 'string',
 			default: '',
-			required: true,
-			description: 'Public URL of the image or video to post',
+			description: 'Public URL of the image or video to post. Required when this target is added.',
 		},
 		{
 			displayName: 'Post as Story',

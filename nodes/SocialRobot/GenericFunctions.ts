@@ -177,7 +177,45 @@ export function buildCreateBody(this: IExecuteFunctions): IDataObject {
 		return target;
 	});
 
+	assertValidTargets(body);
+
 	return body;
+}
+
+/**
+ * n8n can't reliably enforce `required` on fields nested inside a collection
+ * type (they leak into global pre-execution validation), so we validate the
+ * create body here and surface clear, per-target errors instead.
+ */
+function assertValidTargets(body: IDataObject): void {
+	const platforms: Array<[string, string]> = [
+		['instagramTargets', 'Instagram'],
+		['pinterestTargets', 'Pinterest'],
+		['twitterTargets', 'X (Twitter)'],
+		['linkedinTargets', 'LinkedIn'],
+		['blueskyTargets', 'Bluesky'],
+		['tiktokTargets', 'TikTok'],
+		['mastodonTargets', 'Mastodon'],
+		['threadsTargets', 'Threads'],
+		['facebookTargets', 'Facebook'],
+	];
+
+	for (const [key, label] of platforms) {
+		const targets = (body[key] as IDataObject[]) ?? [];
+		for (const target of targets) {
+			if (!target.accountId) {
+				throw new Error(
+					`${label} target is missing an Account. Pick an account from the list, or switch to 'By ID' and enter an account ID.`,
+				);
+			}
+			if (key === 'instagramTargets' && !target.mediaUrl) {
+				throw new Error(`${label} target is missing a Media URL.`);
+			}
+			if (key === 'pinterestTargets' && !target.boardId) {
+				throw new Error(`${label} target is missing a Board ID.`);
+			}
+		}
+	}
 }
 
 /**
