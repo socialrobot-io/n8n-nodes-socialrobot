@@ -1,3 +1,5 @@
+# Only dist/ ships (see the "files" field in package.json). These exclusions are
+# a safety net in case that allowlist is ever removed.
 node_modules/
 .github/
 credentials/
