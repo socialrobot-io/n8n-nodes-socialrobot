@@ -56,17 +56,17 @@ function buildMedias(value: unknown): IDataObject[] {
  * Build the request body for POST /posts from the node's create-post
  * parameters.
  */
-export function buildCreateBody(this: IExecuteFunctions): IDataObject {
-	const publishMode = this.getNodeParameter('publishMode', 0) as string;
+export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataObject {
+	const publishMode = this.getNodeParameter('publishMode', itemIndex) as string;
 
 	const scheduledFor: IDataObject = { publish: publishMode };
 	if (publishMode === 'SCHEDULE') {
-		scheduledFor.date = this.getNodeParameter('scheduleDate', 0) as string;
+		scheduledFor.date = this.getNodeParameter('scheduleDate', itemIndex) as string;
 	}
 
 	const body: IDataObject = { scheduledFor };
 
-	body.instagramTargets = toItems(this.getNodeParameter('instagramTargets', 0, [])).map((t) => {
+	body.instagramTargets = toItems(this.getNodeParameter('instagramTargets', itemIndex, [])).map((t) => {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
@@ -82,13 +82,13 @@ export function buildCreateBody(this: IExecuteFunctions): IDataObject {
 		return target;
 	});
 
-	body.twitterTargets = toItems(this.getNodeParameter('twitterTargets', 0, [])).map((t) => ({
+	body.twitterTargets = toItems(this.getNodeParameter('twitterTargets', itemIndex, [])).map((t) => ({
 		accountId: extractId(t.accountId),
 		caption: (t.caption as string) ?? '',
 		medias: buildMedias(t.medias),
 	}));
 
-	body.linkedinTargets = toItems(this.getNodeParameter('linkedinTargets', 0, [])).map((t) => {
+	body.linkedinTargets = toItems(this.getNodeParameter('linkedinTargets', itemIndex, [])).map((t) => {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
@@ -103,12 +103,12 @@ export function buildCreateBody(this: IExecuteFunctions): IDataObject {
 		return target;
 	});
 
-	body.blueskyTargets = toItems(this.getNodeParameter('blueskyTargets', 0, [])).map((t) => ({
+	body.blueskyTargets = toItems(this.getNodeParameter('blueskyTargets', itemIndex, [])).map((t) => ({
 		accountId: extractId(t.accountId),
 		caption: (t.caption as string) ?? '',
 	}));
 
-	body.pinterestTargets = toItems(this.getNodeParameter('pinterestTargets', 0, [])).map((t) => {
+	body.pinterestTargets = toItems(this.getNodeParameter('pinterestTargets', itemIndex, [])).map((t) => {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			boardId: (t.boardId as string) ?? '',
@@ -127,7 +127,7 @@ export function buildCreateBody(this: IExecuteFunctions): IDataObject {
 		return target;
 	});
 
-	body.tiktokTargets = toItems(this.getNodeParameter('tiktokTargets', 0, [])).map((t) => {
+	body.tiktokTargets = toItems(this.getNodeParameter('tiktokTargets', itemIndex, [])).map((t) => {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
@@ -142,7 +142,7 @@ export function buildCreateBody(this: IExecuteFunctions): IDataObject {
 		return target;
 	});
 
-	body.mastodonTargets = toItems(this.getNodeParameter('mastodonTargets', 0, [])).map((t) => {
+	body.mastodonTargets = toItems(this.getNodeParameter('mastodonTargets', itemIndex, [])).map((t) => {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
@@ -154,13 +154,13 @@ export function buildCreateBody(this: IExecuteFunctions): IDataObject {
 		return target;
 	});
 
-	body.threadsTargets = toItems(this.getNodeParameter('threadsTargets', 0, [])).map((t) => ({
+	body.threadsTargets = toItems(this.getNodeParameter('threadsTargets', itemIndex, [])).map((t) => ({
 		accountId: extractId(t.accountId),
 		caption: (t.caption as string) ?? '',
 		medias: buildMedias(t.medias),
 	}));
 
-	body.facebookTargets = toItems(this.getNodeParameter('facebookTargets', 0, [])).map((t) => {
+	body.facebookTargets = toItems(this.getNodeParameter('facebookTargets', itemIndex, [])).map((t) => {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			medias: buildMedias(t.medias),

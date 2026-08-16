@@ -119,7 +119,7 @@ export class SocialRobot implements INodeType {
 						contentType: this.getNodeParameter('contentType', i) as string,
 					});
 				} else if (resource === 'post' && operation === 'create') {
-					const body = buildCreateBody.call(this);
+					const body = buildCreateBody.call(this, i);
 					responseData = await socialRobotApiRequest.call(this, 'POST', '/posts', body);
 				} else if (resource === 'post' && operation === 'get') {
 					const postId = this.getNodeParameter('postId', i) as string;
