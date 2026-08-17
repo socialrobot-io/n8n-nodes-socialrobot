@@ -1,4 +1,5 @@
-import type { IDataObject, IExecuteFunctions } from 'n8n-workflow';
+import type { IBinaryData, IDataObject, IExecuteFunctions } from 'n8n-workflow';
+import { uploadMedia } from './transport';
 
 /**
  * Normalise a collection value (which n8n may return as an array, a single
@@ -35,28 +36,74 @@ export function extractId(value: unknown): string {
 	return '';
 }
 
+const MIME_TO_EXT: Record<string, string> = {
+	'image/jpeg': 'jpg',
+	'image/png': 'png',
+	'image/gif': 'gif',
+	'image/webp': 'webp',
+	'video/mp4': 'mp4',
+	'video/quicktime': 'mov',
+	'video/webm': 'webm',
+};
+
+function inferFileName(binaryData: IBinaryData): string {
+	if (binaryData.fileName) {
+		return binaryData.fileName;
+	}
+	const mimeType = (binaryData.mimeType || '').toLowerCase();
+	return `media.${MIME_TO_EXT[mimeType] || 'bin'}`;
+}
+
+/**
+ * Resolve a media entry to a public URL. When the media source is binary, the
+ * file is uploaded to SocialRobot storage first and the resulting URL returned.
+ * Otherwise the provided public URL is returned unchanged.
+ */
+async function resolveMediaUrl(
+	this: IExecuteFunctions,
+	itemIndex: number,
+	media: IDataObject,
+): Promise<string> {
+	if (media.mediaSource === 'binary') {
+		const propertyName = (media.binaryPropertyName as string) || 'data';
+		const binaryData = this.helpers.assertBinaryData(itemIndex, propertyName);
+		const buffer = await this.helpers.getBinaryDataBuffer(itemIndex, propertyName);
+		const fileName = inferFileName(binaryData);
+		const mimeType = binaryData.mimeType || 'application/octet-stream';
+		return uploadMedia.call(this, fileName, mimeType, buffer);
+	}
+	return (media.mediaUrl as string) || '';
+}
+
 /**
  * Map a `medias` collection value into the array shape the SocialRobot API
- * expects: [{ mediaType, mediaUrl, altText? }].
+ * expects: [{ mediaType, mediaUrl, altText? }], uploading binary media first.
  */
-function buildMedias(value: unknown): IDataObject[] {
-	return toItems(value).map((media) => {
+async function buildMedias(
+	this: IExecuteFunctions,
+	itemIndex: number,
+	value: unknown,
+): Promise<IDataObject[]> {
+	const items = toItems(value);
+	const result: IDataObject[] = [];
+	for (const media of items) {
 		const item: IDataObject = {
 			mediaType: media.mediaType ?? 'IMAGE',
-			mediaUrl: media.mediaUrl ?? '',
+			mediaUrl: await resolveMediaUrl.call(this, itemIndex, media),
 		};
 		if (media.altText) {
 			item.altText = media.altText;
 		}
-		return item;
-	});
+		result.push(item);
+	}
+	return result;
 }
 
 /**
  * Build the request body for POST /posts from the node's create-post
  * parameters.
  */
-export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataObject {
+export async function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): Promise<IDataObject> {
 	const publishMode = this.getNodeParameter('publishMode', itemIndex) as string;
 
 	const scheduledFor: IDataObject = { publish: publishMode };
@@ -66,12 +113,13 @@ export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataOb
 
 	const body: IDataObject = { scheduledFor };
 
-	body.instagramTargets = toItems(this.getNodeParameter('instagramTargets', itemIndex, [])).map((t) => {
+	const instagramTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('instagramTargets', itemIndex, []))) {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
 			mediaType: (t.mediaType as string) ?? 'IMAGE',
-			mediaUrl: (t.mediaUrl as string) ?? '',
+			mediaUrl: await resolveMediaUrl.call(this, itemIndex, t),
 		};
 		if (t.isStory) {
 			target.isStory = true;
@@ -79,20 +127,26 @@ export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataOb
 		if ((t.mediaType as string) === 'VIDEO' && t.coverUrl) {
 			target.coverUrl = t.coverUrl;
 		}
-		return target;
-	});
+		instagramTargets.push(target);
+	}
+	body.instagramTargets = instagramTargets;
 
-	body.twitterTargets = toItems(this.getNodeParameter('twitterTargets', itemIndex, [])).map((t) => ({
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		medias: buildMedias(t.medias),
-	}));
+	const twitterTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('twitterTargets', itemIndex, []))) {
+		twitterTargets.push({
+			accountId: extractId(t.accountId),
+			caption: (t.caption as string) ?? '',
+			medias: await buildMedias.call(this, itemIndex, t.medias),
+		});
+	}
+	body.twitterTargets = twitterTargets;
 
-	body.linkedinTargets = toItems(this.getNodeParameter('linkedinTargets', itemIndex, [])).map((t) => {
+	const linkedinTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('linkedinTargets', itemIndex, []))) {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
-			medias: buildMedias(t.medias),
+			medias: await buildMedias.call(this, itemIndex, t.medias),
 		};
 		if (t.visibility) {
 			target.visibility = t.visibility;
@@ -100,20 +154,22 @@ export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataOb
 		if (t.firstComment) {
 			target.firstComment = t.firstComment;
 		}
-		return target;
-	});
+		linkedinTargets.push(target);
+	}
+	body.linkedinTargets = linkedinTargets;
 
 	body.blueskyTargets = toItems(this.getNodeParameter('blueskyTargets', itemIndex, [])).map((t) => ({
 		accountId: extractId(t.accountId),
 		caption: (t.caption as string) ?? '',
 	}));
 
-	body.pinterestTargets = toItems(this.getNodeParameter('pinterestTargets', itemIndex, [])).map((t) => {
+	const pinterestTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('pinterestTargets', itemIndex, []))) {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			boardId: (t.boardId as string) ?? '',
 			mediaType: 'IMAGE',
-			medias: buildMedias(t.medias),
+			medias: await buildMedias.call(this, itemIndex, t.medias),
 		};
 		if (t.title) {
 			target.title = t.title;
@@ -124,14 +180,16 @@ export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataOb
 		if (t.link) {
 			target.link = t.link;
 		}
-		return target;
-	});
+		pinterestTargets.push(target);
+	}
+	body.pinterestTargets = pinterestTargets;
 
-	body.tiktokTargets = toItems(this.getNodeParameter('tiktokTargets', itemIndex, [])).map((t) => {
+	const tiktokTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('tiktokTargets', itemIndex, []))) {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
-			medias: buildMedias(t.medias),
+			medias: await buildMedias.call(this, itemIndex, t.medias),
 		};
 		if (t.privacyLevel) {
 			target.privacyLevel = t.privacyLevel;
@@ -139,31 +197,39 @@ export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataOb
 		if (t.postMode) {
 			target.postMode = t.postMode;
 		}
-		return target;
-	});
+		tiktokTargets.push(target);
+	}
+	body.tiktokTargets = tiktokTargets;
 
-	body.mastodonTargets = toItems(this.getNodeParameter('mastodonTargets', itemIndex, [])).map((t) => {
+	const mastodonTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('mastodonTargets', itemIndex, []))) {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
 			caption: (t.caption as string) ?? '',
-			medias: buildMedias(t.medias),
+			medias: await buildMedias.call(this, itemIndex, t.medias),
 		};
 		if (t.visibility) {
 			target.visibility = t.visibility;
 		}
-		return target;
-	});
+		mastodonTargets.push(target);
+	}
+	body.mastodonTargets = mastodonTargets;
 
-	body.threadsTargets = toItems(this.getNodeParameter('threadsTargets', itemIndex, [])).map((t) => ({
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		medias: buildMedias(t.medias),
-	}));
+	const threadsTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('threadsTargets', itemIndex, []))) {
+		threadsTargets.push({
+			accountId: extractId(t.accountId),
+			caption: (t.caption as string) ?? '',
+			medias: await buildMedias.call(this, itemIndex, t.medias),
+		});
+	}
+	body.threadsTargets = threadsTargets;
 
-	body.facebookTargets = toItems(this.getNodeParameter('facebookTargets', itemIndex, [])).map((t) => {
+	const facebookTargets: IDataObject[] = [];
+	for (const t of toItems(this.getNodeParameter('facebookTargets', itemIndex, []))) {
 		const target: IDataObject = {
 			accountId: extractId(t.accountId),
-			medias: buildMedias(t.medias),
+			medias: await buildMedias.call(this, itemIndex, t.medias),
 		};
 		if (t.caption) {
 			target.caption = t.caption;
@@ -174,8 +240,9 @@ export function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): IDataOb
 		if (t.isStory) {
 			target.isStory = true;
 		}
-		return target;
-	});
+		facebookTargets.push(target);
+	}
+	body.facebookTargets = facebookTargets;
 
 	assertValidTargets(body);
 

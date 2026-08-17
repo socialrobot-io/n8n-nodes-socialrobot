@@ -7,7 +7,7 @@ import {
 	type INodeType,
 	type INodeTypeDescription,
 } from 'n8n-workflow';
-import { accountDescription, mediaDescription, postDescription } from './descriptions';
+import { accountDescription, postDescription } from './descriptions';
 import { buildCreateBody, buildListQuery } from './GenericFunctions';
 import {
 	getBlueskyAccounts,
@@ -76,13 +76,11 @@ export class SocialRobot implements INodeType {
 				options: [
 					{ name: 'Post', value: 'post' },
 					{ name: 'Account', value: 'account' },
-					{ name: 'Media', value: 'media' },
 				],
 				default: 'post',
 			},
 			...postDescription,
 			...accountDescription,
-			...mediaDescription,
 		],
 	};
 
@@ -113,13 +111,8 @@ export class SocialRobot implements INodeType {
 
 				if (resource === 'account') {
 					responseData = await socialRobotApiRequest.call(this, 'GET', '/accounts');
-				} else if (resource === 'media') {
-					responseData = await socialRobotApiRequest.call(this, 'POST', '/media/upload-url', {
-						filename: this.getNodeParameter('filename', i) as string,
-						contentType: this.getNodeParameter('contentType', i) as string,
-					});
 				} else if (resource === 'post' && operation === 'create') {
-					const body = buildCreateBody.call(this, i);
+					const body = await buildCreateBody.call(this, i);
 					responseData = await socialRobotApiRequest.call(this, 'POST', '/posts', body);
 				} else if (resource === 'post' && operation === 'get') {
 					const postId = this.getNodeParameter('postId', i) as string;

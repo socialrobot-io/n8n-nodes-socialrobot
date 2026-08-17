@@ -45,6 +45,43 @@ export async function socialRobotApiRequest(
 }
 
 /**
+ * Upload binary media to SocialRobot storage and return the resulting public
+ * URL. First requests a presigned upload URL, then PUTs the raw bytes to it.
+ */
+export async function uploadMedia(
+	this: IExecuteFunctions,
+	filename: string,
+	contentType: string,
+	buffer: Buffer,
+): Promise<string> {
+	const upload = (await socialRobotApiRequest.call(this, 'POST', '/media/upload-url', {
+		filename,
+		contentType,
+	})) as IDataObject;
+
+	const presignedUrl = upload.presignedUrl as string | undefined;
+	const url = upload.url as string | undefined;
+
+	if (!presignedUrl) {
+		throw new Error('SocialRobot did not return a presigned upload URL.');
+	}
+
+	await this.helpers.httpRequest({
+		method: 'PUT',
+		url: presignedUrl,
+		body: buffer,
+		headers: { 'Content-Type': contentType },
+		json: false,
+	});
+
+	if (!url) {
+		throw new Error('SocialRobot did not return a media URL after uploading.');
+	}
+
+	return url;
+}
+
+/**
  * Build a list-search source that only surfaces connected accounts for a
  * single platform, so an Instagram target only offers Instagram accounts and
  * an X target only offers X accounts. The optional `filter` is the text the

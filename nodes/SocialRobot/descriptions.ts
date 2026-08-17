@@ -8,7 +8,6 @@ const showForPostCreate = { resource: ['post'], operation: ['create'] };
 const showForPostGetAll = { resource: ['post'], operation: ['getAll'] };
 const showForPostReschedule = { resource: ['post'], operation: ['reschedule'] };
 const showForAccount = { resource: ['account'] };
-const showForMedia = { resource: ['media'] };
 
 // ---------------------------------------------------------------------------
 // Account resource locator (used by every platform target)
@@ -63,6 +62,33 @@ function mediaCollection(allowedTypes: Array<'IMAGE' | 'VIDEO' | 'GIF'>): INodeP
 		description: 'Media files to attach to this post',
 		options: [
 			{
+				displayName: 'Alt Text',
+				name: 'altText',
+				type: 'string',
+				default: '',
+				description: 'Accessibility description for the media',
+			},
+			{
+				displayName: 'Binary Property',
+				name: 'binaryPropertyName',
+				type: 'string',
+				default: 'data',
+				description:
+					'Name of the binary property on the input item that holds the media (for example "data"). The file is uploaded to SocialRobot automatically.',
+				displayOptions: { show: { mediaSource: ['binary'] } },
+			},
+			{
+				displayName: 'Media Source',
+				name: 'mediaSource',
+				type: 'options',
+				default: 'url',
+				description: 'Attach the media from a public URL or from binary data on the input item',
+				options: [
+					{ name: 'By URL', value: 'url' },
+					{ name: 'From Binary Data', value: 'binary' },
+				],
+			},
+			{
 				displayName: 'Media Type',
 				name: 'mediaType',
 				type: 'options',
@@ -75,13 +101,7 @@ function mediaCollection(allowedTypes: Array<'IMAGE' | 'VIDEO' | 'GIF'>): INodeP
 				type: 'string',
 				default: '',
 				description: 'Public URL of the media file',
-			},
-			{
-				displayName: 'Alt Text',
-				name: 'altText',
-				type: 'string',
-				default: '',
-				description: 'Accessibility description for the media',
+				displayOptions: { show: { mediaSource: ['url'] } },
 			},
 		],
 	};
@@ -103,6 +123,15 @@ const instagramTargets: INodeProperties = {
 	displayOptions: { show: showForPostCreate },
 	options: [
 		{
+			displayName: 'Binary Property',
+			name: 'binaryPropertyName',
+			type: 'string',
+			default: 'data',
+			description:
+				'Name of the binary property on the input item that holds the media (for example "data"). The file is uploaded to SocialRobot automatically.',
+			displayOptions: { show: { mediaSource: ['binary'] } },
+		},
+		{
 			displayName: 'Caption',
 			name: 'caption',
 			type: 'string',
@@ -119,6 +148,17 @@ const instagramTargets: INodeProperties = {
 		},
 		{ ...accountIdSelect('getInstagramAccounts'), displayName: 'Instagram Account' },
 		{
+			displayName: 'Media Source',
+			name: 'mediaSource',
+			type: 'options',
+			default: 'url',
+			description: 'Attach the media from a public URL or from binary data on the input item',
+			options: [
+				{ name: 'By URL', value: 'url' },
+				{ name: 'From Binary Data', value: 'binary' },
+			],
+		},
+		{
 			displayName: 'Media Type',
 			name: 'mediaType',
 			type: 'options',
@@ -133,7 +173,9 @@ const instagramTargets: INodeProperties = {
 			name: 'mediaUrl',
 			type: 'string',
 			default: '',
-			description: 'Public URL of the image or video to post. Required when this target is added.',
+			description:
+				'Public URL of the image or video to post. Required when this target is added and Media Source is By URL.',
+			displayOptions: { show: { mediaSource: ['url'] } },
 		},
 		{
 			displayName: 'Post as Story',
@@ -631,49 +673,5 @@ export const accountDescription: INodeProperties[] = [
 			},
 		],
 		default: 'getAll',
-	},
-];
-
-// ---------------------------------------------------------------------------
-// Media resource description
-// ---------------------------------------------------------------------------
-export const mediaDescription: INodeProperties[] = [
-	{
-		displayName: 'Operation',
-		name: 'operation',
-		type: 'options',
-		noDataExpression: true,
-		displayOptions: { show: showForMedia },
-		options: [
-			{
-				name: 'Get Upload URL',
-				value: 'getUploadUrl',
-				action: 'Get an upload URL',
-				description: 'Generate a presigned URL to upload media directly to SocialRobot storage',
-			},
-		],
-		default: 'getUploadUrl',
-	},
-	{
-		displayName: 'File Name',
-		name: 'filename',
-		type: 'string',
-		default: '',
-		required: true,
-		description: 'The original filename including extension (for example photo.jpg)',
-		displayOptions: {
-			show: { resource: ['media'], operation: ['getUploadUrl'] },
-		},
-	},
-	{
-		displayName: 'Content Type',
-		name: 'contentType',
-		type: 'string',
-		default: '',
-		required: true,
-		description: 'The MIME type that will be uploaded (for example image/jpeg or video/mp4)',
-		displayOptions: {
-			show: { resource: ['media'], operation: ['getUploadUrl'] },
-		},
 	},
 ];
