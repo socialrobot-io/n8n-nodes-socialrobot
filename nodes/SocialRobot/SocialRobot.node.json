@@ -1,8 +1,8 @@
 {
-	"node": "@socialrobot-io/n8n-nodes-socialrobot",
+	"node": "@socialrobot-io/n8n-nodes-socialrobot.socialRobot",
 	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
-	"categories": ["Communication", "Productivity", "Social Media"],
+	"categories": ["Communication", "Marketing & Content", "Productivity"],
 	"resources": {
 		"credentialDocumentation": [
 			{
