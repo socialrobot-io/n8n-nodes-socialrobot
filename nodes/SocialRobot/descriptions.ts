@@ -9,23 +9,8 @@ const showForPostGetAll = { resource: ['post'], operation: ['getAll'] };
 const showForPostReschedule = { resource: ['post'], operation: ['reschedule'] };
 const showForAccount = { resource: ['account'] };
 
-// Platforms that publish a single text/caption (no dedicated title+description).
-const TEXT_PLATFORMS = [
-	'instagram',
-	'x',
-	'linkedin',
-	'bluesky',
-	'tiktok',
-	'mastodon',
-	'threads',
-	'facebook',
-];
-
-// Platforms that attach media through a `medias` array.
-const MEDIA_PLATFORMS = ['x', 'linkedin', 'pinterest', 'tiktok', 'mastodon', 'threads', 'facebook'];
-
 // ---------------------------------------------------------------------------
-// Shared media collection (attaches a `medias` array to a target)
+// Media collection (shared by every platform that accepts media)
 // ---------------------------------------------------------------------------
 const mediaCollection: INodeProperties = {
 	displayName: 'Media',
@@ -37,7 +22,6 @@ const mediaCollection: INodeProperties = {
 	},
 	default: {},
 	description: 'Media files to attach to this post',
-	displayOptions: { show: { platform: MEDIA_PLATFORMS } },
 	options: [
 		{
 			displayName: 'Alt Text',
@@ -71,7 +55,8 @@ const mediaCollection: INodeProperties = {
 			name: 'mediaType',
 			type: 'options',
 			default: 'IMAGE',
-			description: 'The media format. Not every platform accepts every type (GIF is only supported on X and Mastodon).',
+			description:
+				'The media format. Not every platform accepts every type (GIF is only supported on X and Mastodon).',
 			options: [
 				{ name: 'Image', value: 'IMAGE' },
 				{ name: 'Video', value: 'VIDEO' },
@@ -90,9 +75,9 @@ const mediaCollection: INodeProperties = {
 };
 
 // ---------------------------------------------------------------------------
-// Create Post: single "Targets" collection (one Add Target button for every
-// platform; the platform field drives which fields show and which account list
-// the picker loads)
+// Create Post: single "Targets" collection. Each target is one connected
+// account; the account's platform is inferred at runtime, so there is no
+// separate platform selector to keep in sync.
 // ---------------------------------------------------------------------------
 const targets: INodeProperties = {
 	displayName: 'Targets',
@@ -100,10 +85,10 @@ const targets: INodeProperties = {
 	type: 'collection',
 	typeOptions: {
 		multipleValues: true,
-		multipleValueButtonText: 'Add Target',
+		multipleValueButtonText: 'Add Account',
 	},
 	default: {},
-	description: 'Publish this post to one or more accounts or pages across any connected platform',
+	description: 'Publish this post to one or more connected accounts',
 	displayOptions: { show: showForPostCreate },
 	options: [
 		{
@@ -111,7 +96,7 @@ const targets: INodeProperties = {
 			name: 'accountId',
 			type: 'resourceLocator',
 			default: { mode: 'list', value: '' },
-			description: 'The connected SocialRobot account to publish to. Filtered to the platform selected above.',
+			description: 'The connected SocialRobot account to publish to',
 			modes: [
 				{
 					displayName: 'From List',
@@ -132,189 +117,22 @@ const targets: INodeProperties = {
 			],
 		},
 		{
-			displayName: 'Audience',
-			name: 'postVisibility',
-			type: 'options',
-			default: 'PUBLIC',
-			description: 'Who can see this LinkedIn post',
-			options: [
-				{ name: 'Public', value: 'PUBLIC' },
-				{ name: 'Connections Only', value: 'CONNECTIONS' },
-			],
-			displayOptions: { show: { platform: ['linkedin'] } },
-		},
-		{
-			displayName: 'Binary Property',
-			name: 'binaryPropertyName',
-			type: 'string',
-			default: 'data',
-			description:
-				'Name of the binary property on the input item that holds the media (for example "data"). The file is uploaded to SocialRobot automatically.',
-			displayOptions: { show: { platform: ['instagram'], mediaSource: ['binary'] } },
-		},
-		{
-			displayName: 'Board ID',
-			name: 'boardId',
-			type: 'string',
-			default: '',
-			description: 'The Pinterest board to pin to',
-			displayOptions: { show: { platform: ['pinterest'] } },
-		},
-		{
 			displayName: 'Caption',
 			name: 'caption',
 			type: 'string',
 			typeOptions: { rows: 4 },
 			default: '',
-			description: 'The text or caption of the post',
-			displayOptions: { show: { platform: TEXT_PLATFORMS } },
-		},
-		{
-			displayName: 'Cover URL',
-			name: 'coverUrl',
-			type: 'string',
-			default: '',
-			description: 'Cover image URL for Instagram video posts (optional)',
-			displayOptions: { show: { platform: ['instagram'], mediaType: ['VIDEO'] } },
-		},
-		{
-			displayName: 'Description',
-			name: 'description',
-			type: 'string',
-			typeOptions: { rows: 3 },
-			default: '',
-			description: 'The pin description',
-			displayOptions: { show: { platform: ['pinterest'] } },
-		},
-		{
-			displayName: 'First Comment',
-			name: 'firstComment',
-			type: 'string',
-			typeOptions: { rows: 2 },
-			default: '',
-			description: 'A comment to add right after publishing (optional)',
-			displayOptions: { show: { platform: ['linkedin'] } },
-		},
-		{
-			displayName: 'Link',
-			name: 'link',
-			type: 'string',
-			default: '',
-			description: 'Destination URL for the pin',
-			displayOptions: { show: { platform: ['pinterest'] } },
+			description:
+				'The text or caption of the post. For Pinterest targets this is used as the pin description.',
 		},
 		mediaCollection,
 		{
-			displayName: 'Media Source',
-			name: 'mediaSource',
-			type: 'options',
-			default: 'url',
-			description: 'Attach the media from a public URL or from binary data on the input item',
-			options: [
-				{ name: 'By URL', value: 'url' },
-				{ name: 'From Binary Data', value: 'binary' },
-			],
-			displayOptions: { show: { platform: ['instagram'] } },
-		},
-		{
-			displayName: 'Media Type',
-			name: 'mediaType',
-			type: 'options',
-			default: 'IMAGE',
-			options: [
-				{ name: 'Image', value: 'IMAGE' },
-				{ name: 'Video', value: 'VIDEO' },
-			],
-			displayOptions: { show: { platform: ['instagram'] } },
-		},
-		{
-			displayName: 'Media URL',
-			name: 'mediaUrl',
+			displayName: 'Pinterest Board ID',
+			name: 'boardId',
 			type: 'string',
 			default: '',
 			description:
-				'Public URL of the image or video to post. Required when Media Source is By URL.',
-			displayOptions: { show: { platform: ['instagram'], mediaSource: ['url'] } },
-		},
-		{
-			displayName: 'Platform',
-			name: 'platform',
-			type: 'options',
-			noDataExpression: true,
-			options: [
-				{ name: 'Bluesky', value: 'bluesky' },
-				{ name: 'Facebook', value: 'facebook' },
-				{ name: 'Instagram', value: 'instagram' },
-				{ name: 'LinkedIn', value: 'linkedin' },
-				{ name: 'Mastodon', value: 'mastodon' },
-				{ name: 'Pinterest', value: 'pinterest' },
-				{ name: 'Threads', value: 'threads' },
-				{ name: 'TikTok', value: 'tiktok' },
-				{ name: 'X (Twitter)', value: 'x' },
-			],
-			default: 'instagram',
-			description: 'The platform to publish this target to',
-		},
-		{
-			displayName: 'Post as Reel',
-			name: 'isReel',
-			type: 'boolean',
-			default: false,
-			description: 'Whether to publish this Facebook post as a Reel',
-			displayOptions: { show: { platform: ['facebook'] } },
-		},
-		{
-			displayName: 'Post as Story',
-			name: 'isStory',
-			type: 'boolean',
-			default: false,
-			description: 'Whether to publish this post as a Story',
-			displayOptions: { show: { platform: ['instagram', 'facebook'] } },
-		},
-		{
-			displayName: 'Post Mode',
-			name: 'postMode',
-			type: 'options',
-			default: 'DIRECT_POST',
-			options: [
-				{ name: 'Direct Post', value: 'DIRECT_POST' },
-				{ name: 'Upload (Inbox Draft)', value: 'UPLOAD' },
-			],
-			displayOptions: { show: { platform: ['tiktok'] } },
-		},
-		{
-			displayName: 'Privacy Level',
-			name: 'privacyLevel',
-			type: 'options',
-			default: 'PUBLIC',
-			options: [
-				{ name: 'Public', value: 'PUBLIC' },
-				{ name: 'Friends', value: 'FRIENDS' },
-				{ name: 'Followers', value: 'FOLLOWERS' },
-				{ name: 'Private', value: 'PRIVATE' },
-			],
-			displayOptions: { show: { platform: ['tiktok'] } },
-		},
-		{
-			displayName: 'Title',
-			name: 'title',
-			type: 'string',
-			default: '',
-			description: 'The pin title',
-			displayOptions: { show: { platform: ['pinterest'] } },
-		},
-		{
-			displayName: 'Visibility',
-			name: 'visibility',
-			type: 'options',
-			default: 'public',
-			options: [
-				{ name: 'Public', value: 'public' },
-				{ name: 'Unlisted', value: 'unlisted' },
-				{ name: 'Followers Only', value: 'private' },
-				{ name: 'Direct', value: 'direct' },
-			],
-			displayOptions: { show: { platform: ['mastodon'] } },
+				'The Pinterest board to pin to. Only needed when the selected account is a Pinterest account.',
 		},
 	],
 };

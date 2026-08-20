@@ -82,18 +82,15 @@ export async function uploadMedia(
 }
 
 /**
- * Account resource-locator source. Reads the sibling "platform" field on the
- * current target and only surfaces accounts for that platform, so an Instagram
- * target only offers Instagram accounts and an X target only offers X
- * accounts. When no platform is selected yet, every connected account is
- * listed. The optional `filter` is the text the user types in the picker.
+ * Account resource-locator source. Lists every connected account across all
+ * platforms, with the platform shown in each label. The node infers each
+ * account's platform at execution time, so no platform filter is needed here.
+ * The optional `filter` is the text the user types in the picker.
  */
 export async function getAccounts(
 	this: ILoadOptionsFunctions,
 	filter?: string,
 ): Promise<INodeListSearchResult> {
-	const platform = this.getCurrentNodeParameter('platform') as string | undefined;
-
 	const responseData = (await socialRobotApiRequest.call(
 		this,
 		'GET',
@@ -101,9 +98,6 @@ export async function getAccounts(
 	)) as IDataObject[];
 
 	let accounts = Array.isArray(responseData) ? responseData : [];
-	if (platform) {
-		accounts = accounts.filter((account) => account.platform === platform);
-	}
 
 	if (filter) {
 		const needle = filter.toLowerCase();
@@ -119,14 +113,15 @@ export async function getAccounts(
 	const results: INodeListSearchItems[] = accounts.map((account) => {
 		const displayName = (account.displayName as string) || '';
 		const handle = (account.handle as string) || '';
-		const label = [displayName, handle ? `@${handle}` : null]
+		const platform = (account.platform as string) || '';
+		const label = [displayName, handle ? `@${handle}` : null, platform]
 			.filter(Boolean)
 			.join(' · ');
 
 		return {
 			name: label || (account.id as string),
 			value: account.id as string,
-			description: platform || (account.platform as string),
+			description: platform,
 			url: (account.profileImage as string) || undefined,
 		};
 	});

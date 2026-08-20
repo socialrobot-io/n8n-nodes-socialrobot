@@ -99,40 +99,37 @@ async function buildMedias(
 	return result;
 }
 
-// Human labels used in validation errors, keyed by platform value.
-const PLATFORM_LABELS: Record<string, string> = {
-	instagram: 'Instagram',
-	x: 'X (Twitter)',
-	linkedin: 'LinkedIn',
-	bluesky: 'Bluesky',
-	pinterest: 'Pinterest',
-	tiktok: 'TikTok',
-	mastodon: 'Mastodon',
-	threads: 'Threads',
-	facebook: 'Facebook',
-};
-
+/**
+ * Build an Instagram target. Instagram uses a single media item (mediaType +
+ * mediaUrl) rather than a `medias` array, so it is read from the first entry
+ * of the shared Media collection.
+ */
 async function buildInstagramTarget(
 	this: IExecuteFunctions,
 	itemIndex: number,
 	t: IDataObject,
 ): Promise<IDataObject> {
-	const target: IDataObject = {
+	const medias = await buildMedias.call(this, itemIndex, t.medias);
+	if (medias.length === 0) {
+		throw new Error('Instagram target is missing media. Add one media entry under Media.');
+	}
+	if (medias.length > 1) {
+		throw new Error('Instagram supports a single media file. Add only one media entry.');
+	}
+	const first = medias[0];
+	return {
 		accountId: extractId(t.accountId),
 		caption: (t.caption as string) ?? '',
-		mediaType: (t.mediaType as string) ?? 'IMAGE',
-		mediaUrl: await resolveMediaUrl.call(this, itemIndex, t),
+		mediaType: first.mediaType ?? 'IMAGE',
+		mediaUrl: first.mediaUrl,
 	};
-	if (t.isStory) {
-		target.isStory = true;
-	}
-	if ((t.mediaType as string) === 'VIDEO' && t.coverUrl) {
-		target.coverUrl = t.coverUrl;
-	}
-	return target;
 }
 
-async function buildTwitterTarget(
+/**
+ * Build a target for the platforms that share the `{ accountId, caption,
+ * medias[] }` shape: X, LinkedIn, TikTok, Mastodon, and Threads.
+ */
+async function buildCaptionMediaTarget(
 	this: IExecuteFunctions,
 	itemIndex: number,
 	t: IDataObject,
@@ -142,25 +139,6 @@ async function buildTwitterTarget(
 		caption: (t.caption as string) ?? '',
 		medias: await buildMedias.call(this, itemIndex, t.medias),
 	};
-}
-
-async function buildLinkedinTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	const target: IDataObject = {
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		medias: await buildMedias.call(this, itemIndex, t.medias),
-	};
-	if (t.postVisibility) {
-		target.visibility = t.postVisibility;
-	}
-	if (t.firstComment) {
-		target.firstComment = t.firstComment;
-	}
-	return target;
 }
 
 async function buildBlueskyTarget(
@@ -185,63 +163,10 @@ async function buildPinterestTarget(
 		mediaType: 'IMAGE',
 		medias: await buildMedias.call(this, itemIndex, t.medias),
 	};
-	if (t.title) {
-		target.title = t.title;
-	}
-	if (t.description) {
-		target.description = t.description;
-	}
-	if (t.link) {
-		target.link = t.link;
+	if (t.caption) {
+		target.description = t.caption;
 	}
 	return target;
-}
-
-async function buildTiktokTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	const target: IDataObject = {
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		medias: await buildMedias.call(this, itemIndex, t.medias),
-	};
-	if (t.privacyLevel) {
-		target.privacyLevel = t.privacyLevel;
-	}
-	if (t.postMode) {
-		target.postMode = t.postMode;
-	}
-	return target;
-}
-
-async function buildMastodonTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	const target: IDataObject = {
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		medias: await buildMedias.call(this, itemIndex, t.medias),
-	};
-	if (t.visibility) {
-		target.visibility = t.visibility;
-	}
-	return target;
-}
-
-async function buildThreadsTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	return {
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		medias: await buildMedias.call(this, itemIndex, t.medias),
-	};
 }
 
 async function buildFacebookTarget(
@@ -256,21 +181,20 @@ async function buildFacebookTarget(
 	if (t.caption) {
 		target.caption = t.caption;
 	}
-	if (t.isReel) {
-		target.isReel = true;
-	}
-	if (t.isStory) {
-		target.isStory = true;
-	}
 	return target;
 }
 
 /**
  * Build the request body for POST /posts from the node's create-post
- * parameters. The single `targets` collection is grouped by the selected
- * platform into the per-platform arrays the SocialRobot API expects.
+ * parameters. Each target is a connected account; its platform is looked up
+ * from `accountPlatforms` (built once per execution) and used to group the
+ * target into the per-platform arrays the SocialRobot API expects.
  */
-export async function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): Promise<IDataObject> {
+export async function buildCreateBody(
+	this: IExecuteFunctions,
+	itemIndex: number,
+	accountPlatforms: Map<string, string>,
+): Promise<IDataObject> {
 	const publishMode = this.getNodeParameter('publishMode', itemIndex) as string;
 
 	const scheduledFor: IDataObject = { publish: publishMode };
@@ -290,43 +214,64 @@ export async function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): P
 
 	const targets = toItems(this.getNodeParameter('targets', itemIndex, []));
 
+	if (targets.length === 0) {
+		throw new Error('Add at least one target. Click "Add Account" and select a connected account.');
+	}
+
 	for (const t of targets) {
-		const platform = (t.platform as string) ?? '';
+		const accountId = extractId(t.accountId);
+		if (!accountId) {
+			throw new Error(
+				'A target is missing an Account. Pick an account from the list, or switch to "By ID" and enter an account ID.',
+			);
+		}
+
+		const platform = accountPlatforms.get(accountId);
+		if (!platform) {
+			throw new Error(
+				`Account "${accountId}" was not found among your connected accounts. Check the account ID or reconnect it in SocialRobot.`,
+			);
+		}
+
 		switch (platform) {
 			case 'instagram':
 				instagramTargets.push(await buildInstagramTarget.call(this, itemIndex, t));
 				break;
 			case 'x':
-				twitterTargets.push(await buildTwitterTarget.call(this, itemIndex, t));
+				twitterTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
 				break;
 			case 'linkedin':
-				linkedinTargets.push(await buildLinkedinTarget.call(this, itemIndex, t));
+				linkedinTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
 				break;
 			case 'bluesky':
 				blueskyTargets.push(await buildBlueskyTarget.call(this, itemIndex, t));
 				break;
 			case 'pinterest':
+				if (!(t.boardId as string)) {
+					throw new Error(
+						'Pinterest target is missing a Board ID. Enter the board to pin to under "Pinterest Board ID".',
+					);
+				}
 				pinterestTargets.push(await buildPinterestTarget.call(this, itemIndex, t));
 				break;
 			case 'tiktok':
-				tiktokTargets.push(await buildTiktokTarget.call(this, itemIndex, t));
+				tiktokTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
 				break;
 			case 'mastodon':
-				mastodonTargets.push(await buildMastodonTarget.call(this, itemIndex, t));
+				mastodonTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
 				break;
 			case 'threads':
-				threadsTargets.push(await buildThreadsTarget.call(this, itemIndex, t));
+				threadsTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
 				break;
 			case 'facebook':
 				facebookTargets.push(await buildFacebookTarget.call(this, itemIndex, t));
 				break;
 			default:
-				// A target without a platform value is caught by assertValidTargets.
-				break;
+				throw new Error(`Unsupported platform "${platform}" for account "${accountId}".`);
 		}
 	}
 
-	const body: IDataObject = {
+	return {
 		scheduledFor,
 		instagramTargets,
 		twitterTargets,
@@ -338,54 +283,6 @@ export async function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): P
 		threadsTargets,
 		facebookTargets,
 	};
-
-	assertValidTargets(targets, body);
-
-	return body;
-}
-
-/**
- * n8n can't reliably enforce `required` on fields nested inside a collection
- * type (they leak into global pre-execution validation), so we validate the
- * create body here and surface clear, per-target errors instead.
- */
-function assertValidTargets(targets: IDataObject[], body: IDataObject): void {
-	if (targets.length === 0) {
-		throw new Error(
-			'Add at least one target. Click "Add Target" and pick a platform, then select the account to publish to.',
-		);
-	}
-
-	for (const target of targets) {
-		const platform = (target.platform as string) ?? '';
-		if (!platform) {
-			throw new Error(
-				'A target is missing a Platform. Pick Instagram, X, LinkedIn, or another platform for each target.',
-			);
-		}
-
-		const label = PLATFORM_LABELS[platform] ?? platform;
-
-		if (!extractId(target.accountId)) {
-			throw new Error(
-				`${label} target is missing an Account. Pick an account from the list, or switch to 'By ID' and enter an account ID.`,
-			);
-		}
-		if (platform === 'instagram' && target.mediaSource !== 'binary' && !(target.mediaUrl as string)) {
-			throw new Error(`${label} target is missing a Media URL.`);
-		}
-		if (platform === 'pinterest' && !(target.boardId as string)) {
-			throw new Error(`${label} target is missing a Board ID.`);
-		}
-	}
-
-	// Instagram requires media even when no target-level media was resolved
-	// (for example a binary upload that produced no URL).
-	for (const target of (body.instagramTargets as IDataObject[]) ?? []) {
-		if (!target.mediaUrl) {
-			throw new Error('Instagram target is missing a Media URL.');
-		}
-	}
 }
 
 /**

@@ -86,6 +86,20 @@ export class SocialRobot implements INodeType {
 		const resource = this.getNodeParameter('resource', 0) as string;
 		const operation = this.getNodeParameter('operation', 0) as string;
 
+		// For Create Post, load the connected accounts once and map account id to
+		// platform so each target's platform can be inferred from its account.
+		const accountPlatforms = new Map<string, string>();
+		if (resource === 'post' && operation === 'create') {
+			const accounts = (await socialRobotApiRequest.call(this, 'GET', '/accounts')) as IDataObject[];
+			if (Array.isArray(accounts)) {
+				for (const account of accounts) {
+					if (account.id && account.platform) {
+						accountPlatforms.set(String(account.id), String(account.platform));
+					}
+				}
+			}
+		}
+
 		for (let i = 0; i < items.length; i++) {
 			try {
 				let responseData: unknown;
@@ -93,7 +107,7 @@ export class SocialRobot implements INodeType {
 				if (resource === 'account') {
 					responseData = await socialRobotApiRequest.call(this, 'GET', '/accounts');
 				} else if (resource === 'post' && operation === 'create') {
-					const body = await buildCreateBody.call(this, i);
+					const body = await buildCreateBody.call(this, i, accountPlatforms);
 					responseData = await socialRobotApiRequest.call(this, 'POST', '/posts', body);
 				} else if (resource === 'post' && operation === 'get') {
 					const postId = this.getNodeParameter('postId', i) as string;

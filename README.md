@@ -31,7 +31,7 @@ After installation, **SocialRobot** appears in the node panel under the Input ca
 
 ### Post
 
-- **Create** — Create a single scheduled item that can target multiple connected social accounts at once. Supports draft, publish-now, and scheduled posting. Each target is one entry in a single **Targets** collection where you pick the platform, the account, and the content. Media is attached inside each target, either as a public URL or as binary data from the input item (uploaded to SocialRobot automatically).
+- **Create** — Create a single scheduled item that can target multiple connected social accounts at once. Supports draft, publish-now, and scheduled posting. Each target is one connected account in a single **Targets** collection; the platform is inferred from the account you pick, so there is no separate platform selector. Media is attached inside each target, either as a public URL or as binary data from the input item (uploaded to SocialRobot automatically).
 - **Get** — Fetch a single post by ID.
 - **Get Many** — List posts with optional filters (status, platform, scheduled date range) and cursor pagination, including a **Return All** option.
 - **Delete** — Delete a post by ID.
@@ -73,9 +73,9 @@ Use the **Test** button to verify the credential. It calls `GET /accounts` and s
 1. Add a **SocialRobot** node.
 2. Set **Resource** to **Post** and **Operation** to **Create**.
 3. Set **Schedule Type** to **Schedule** and choose a **Schedule Date**.
-4. Click **Add Target**, set **Platform** to **X (Twitter)**, pick the account from the list, and type the post text.
-5. Click **Add Target** again, set **Platform** to **LinkedIn**, pick the account, and type the text.
-6. Optionally add media inside each target, either as a public URL or as binary data from the input item.
+4. Click **Add Account**, pick an X (Twitter) account from the list, and type the post text.
+5. Click **Add Account** again, pick a LinkedIn account, and type the text.
+6. Optionally add media under each target's **Media** collection, either as a public URL or as binary data from the input item.
 
 The node returns the created post ID (`{ "id": "..." }`).
 
@@ -83,12 +83,12 @@ The node returns the created post ID (`{ "id": "..." }`).
 
 1. Add an **HTTP Request** node that downloads an image, with **Response Format** set to **File**. This saves the response as binary data under the `data` property.
 2. Add a **SocialRobot** node with **Resource** = **Post** and **Operation** = **Create**.
-3. Click **Add Target**, set **Platform** to **Instagram**, pick the account, and set **Media Source** to **From Binary Data** with **Binary Property** set to `data`.
+3. Click **Add Account**, pick an Instagram account, then add a **Media** entry and set **Media Source** to **From Binary Data** with **Binary Property** set to `data`.
 4. The node uploads the binary file to SocialRobot storage automatically and uses the resulting URL in the post.
 
 To reference a public media URL instead, leave **Media Source** set to **By URL** and paste the URL into **Media URL**.
 
-Platforms that support multiple media (X, LinkedIn, TikTok, Mastodon, Threads, Facebook, Pinterest) attach media through the target's **Media** collection instead of a single **Media URL**. Add one or more media entries there, each with its own **Media Source**, **Media Type**, and URL or binary property.
+Media is attached through each target's **Media** collection. Most platforms accept multiple entries; Instagram accepts a single media entry. Each media entry has its own **Media Source**, **Media Type**, and URL or binary property. For Pinterest targets, set the **Pinterest Board ID** on the target.
 
 ### Filter scheduled posts
 
