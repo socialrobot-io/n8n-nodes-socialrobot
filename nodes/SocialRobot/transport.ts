@@ -82,61 +82,54 @@ export async function uploadMedia(
 }
 
 /**
- * Build a list-search source that only surfaces connected accounts for a
- * single platform, so an Instagram target only offers Instagram accounts and
- * an X target only offers X accounts. The optional `filter` is the text the
- * user types in the picker.
+ * Account resource-locator source. Reads the sibling "platform" field on the
+ * current target and only surfaces accounts for that platform, so an Instagram
+ * target only offers Instagram accounts and an X target only offers X
+ * accounts. When no platform is selected yet, every connected account is
+ * listed. The optional `filter` is the text the user types in the picker.
  */
-function getAccountsListSearchFactory(platform: string) {
-	return async function (
-		this: ILoadOptionsFunctions,
-		filter?: string,
-	): Promise<INodeListSearchResult> {
-		const responseData = (await socialRobotApiRequest.call(
-			this,
-			'GET',
-			'/accounts',
-		)) as IDataObject[];
+export async function getAccounts(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+): Promise<INodeListSearchResult> {
+	const platform = this.getCurrentNodeParameter('platform') as string | undefined;
 
-		let accounts = Array.isArray(responseData) ? responseData : [];
+	const responseData = (await socialRobotApiRequest.call(
+		this,
+		'GET',
+		'/accounts',
+	)) as IDataObject[];
+
+	let accounts = Array.isArray(responseData) ? responseData : [];
+	if (platform) {
 		accounts = accounts.filter((account) => account.platform === platform);
+	}
 
-		if (filter) {
-			const needle = filter.toLowerCase();
-			accounts = accounts.filter((account) =>
-				[account.displayName, account.handle, account.platform].some((value) =>
-					String(value ?? '')
-						.toLowerCase()
-						.includes(needle),
-				),
-			);
-		}
+	if (filter) {
+		const needle = filter.toLowerCase();
+		accounts = accounts.filter((account) =>
+			[account.displayName, account.handle, account.platform].some((value) =>
+				String(value ?? '')
+					.toLowerCase()
+					.includes(needle),
+			),
+		);
+	}
 
-		const results: INodeListSearchItems[] = accounts.map((account) => {
-			const displayName = (account.displayName as string) || '';
-			const handle = (account.handle as string) || '';
-			const label = [displayName, handle ? `@${handle}` : null]
-				.filter(Boolean)
-				.join(' · ');
+	const results: INodeListSearchItems[] = accounts.map((account) => {
+		const displayName = (account.displayName as string) || '';
+		const handle = (account.handle as string) || '';
+		const label = [displayName, handle ? `@${handle}` : null]
+			.filter(Boolean)
+			.join(' · ');
 
-			return {
-				name: label || (account.id as string),
-				value: account.id as string,
-				description: platform,
-				url: (account.profileImage as string) || undefined,
-			};
-		});
+		return {
+			name: label || (account.id as string),
+			value: account.id as string,
+			description: platform || (account.platform as string),
+			url: (account.profileImage as string) || undefined,
+		};
+	});
 
-		return { results };
-	};
+	return { results };
 }
-
-export const getInstagramAccounts = getAccountsListSearchFactory('instagram');
-export const getPinterestAccounts = getAccountsListSearchFactory('pinterest');
-export const getTwitterAccounts = getAccountsListSearchFactory('x');
-export const getLinkedinAccounts = getAccountsListSearchFactory('linkedin');
-export const getBlueskyAccounts = getAccountsListSearchFactory('bluesky');
-export const getTiktokAccounts = getAccountsListSearchFactory('tiktok');
-export const getMastodonAccounts = getAccountsListSearchFactory('mastodon');
-export const getThreadsAccounts = getAccountsListSearchFactory('threads');
-export const getFacebookAccounts = getAccountsListSearchFactory('facebook');

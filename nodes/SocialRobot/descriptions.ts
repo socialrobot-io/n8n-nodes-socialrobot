@@ -9,119 +9,43 @@ const showForPostGetAll = { resource: ['post'], operation: ['getAll'] };
 const showForPostReschedule = { resource: ['post'], operation: ['reschedule'] };
 const showForAccount = { resource: ['account'] };
 
-// ---------------------------------------------------------------------------
-// Account resource locator (used by every platform target)
-// ---------------------------------------------------------------------------
-export function accountIdSelect(searchListMethod: string): INodeProperties {
-	return {
-		displayName: 'Account',
-		name: 'accountId',
-		type: 'resourceLocator',
-		default: { mode: 'list', value: '' },
-		description: 'The connected SocialRobot account to publish to. Required when this target is added.',
-		modes: [
-			{
-				displayName: 'From List',
-				name: 'list',
-				type: 'list',
-				placeholder: 'Select an account...',
-				typeOptions: {
-					searchListMethod,
-					searchable: true,
-				},
-			},
-			{
-				displayName: 'By ID',
-				name: 'id',
-				type: 'string',
-				placeholder: 'e.g. instagram-account-id-123',
-			},
-		],
-	};
-}
+// Platforms that publish a single text/caption (no dedicated title+description).
+const TEXT_PLATFORMS = [
+	'instagram',
+	'x',
+	'linkedin',
+	'bluesky',
+	'tiktok',
+	'mastodon',
+	'threads',
+	'facebook',
+];
+
+// Platforms that attach media through a `medias` array.
+const MEDIA_PLATFORMS = ['x', 'linkedin', 'pinterest', 'tiktok', 'mastodon', 'threads', 'facebook'];
 
 // ---------------------------------------------------------------------------
-// Media collection (shared by the platforms that accept a `medias` array)
+// Shared media collection (attaches a `medias` array to a target)
 // ---------------------------------------------------------------------------
-function mediaCollection(allowedTypes: Array<'IMAGE' | 'VIDEO' | 'GIF'>): INodeProperties {
-	const typeOptions = [
-		{ name: 'Image', value: 'IMAGE' },
-		{ name: 'Video', value: 'VIDEO' },
-		{ name: 'GIF', value: 'GIF' },
-	].filter((option) => allowedTypes.includes(option.value as 'IMAGE' | 'VIDEO' | 'GIF'));
-
-	return {
-		displayName: 'Media',
-		name: 'medias',
-		type: 'collection',
-		typeOptions: {
-			multipleValues: true,
-			multipleValueButtonText: 'Add Media',
-		},
-		default: {},
-		description: 'Media files to attach to this post',
-		options: [
-			{
-				displayName: 'Alt Text',
-				name: 'altText',
-				type: 'string',
-				default: '',
-				description: 'Accessibility description for the media',
-			},
-			{
-				displayName: 'Binary Property',
-				name: 'binaryPropertyName',
-				type: 'string',
-				default: 'data',
-				description:
-					'Name of the binary property on the input item that holds the media (for example "data"). The file is uploaded to SocialRobot automatically.',
-				displayOptions: { show: { mediaSource: ['binary'] } },
-			},
-			{
-				displayName: 'Media Source',
-				name: 'mediaSource',
-				type: 'options',
-				default: 'url',
-				description: 'Attach the media from a public URL or from binary data on the input item',
-				options: [
-					{ name: 'By URL', value: 'url' },
-					{ name: 'From Binary Data', value: 'binary' },
-				],
-			},
-			{
-				displayName: 'Media Type',
-				name: 'mediaType',
-				type: 'options',
-				default: 'IMAGE',
-				options: typeOptions,
-			},
-			{
-				displayName: 'Media URL',
-				name: 'mediaUrl',
-				type: 'string',
-				default: '',
-				description: 'Public URL of the media file',
-				displayOptions: { show: { mediaSource: ['url'] } },
-			},
-		],
-	};
-}
-
-// ---------------------------------------------------------------------------
-// Platform target collections
-// ---------------------------------------------------------------------------
-const instagramTargets: INodeProperties = {
-	displayName: 'Instagram Targets',
-	name: 'instagramTargets',
+const mediaCollection: INodeProperties = {
+	displayName: 'Media',
+	name: 'medias',
 	type: 'collection',
 	typeOptions: {
 		multipleValues: true,
-		multipleValueButtonText: 'Add Instagram Target',
+		multipleValueButtonText: 'Add Media',
 	},
 	default: {},
-	description: 'Publish this post to one or more Instagram accounts',
-	displayOptions: { show: showForPostCreate },
+	description: 'Media files to attach to this post',
+	displayOptions: { show: { platform: MEDIA_PLATFORMS } },
 	options: [
+		{
+			displayName: 'Alt Text',
+			name: 'altText',
+			type: 'string',
+			default: '',
+			description: 'Accessibility description for the media',
+		},
 		{
 			displayName: 'Binary Property',
 			name: 'binaryPropertyName',
@@ -131,22 +55,6 @@ const instagramTargets: INodeProperties = {
 				'Name of the binary property on the input item that holds the media (for example "data"). The file is uploaded to SocialRobot automatically.',
 			displayOptions: { show: { mediaSource: ['binary'] } },
 		},
-		{
-			displayName: 'Caption',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description: 'The caption for the Instagram post',
-		},
-		{
-			displayName: 'Cover URL',
-			name: 'coverUrl',
-			type: 'string',
-			default: '',
-			description: 'Cover image URL for video posts (optional)',
-		},
-		{ ...accountIdSelect('getInstagramAccounts'), displayName: 'Instagram Account' },
 		{
 			displayName: 'Media Source',
 			name: 'mediaSource',
@@ -163,9 +71,11 @@ const instagramTargets: INodeProperties = {
 			name: 'mediaType',
 			type: 'options',
 			default: 'IMAGE',
+			description: 'The media format. Not every platform accepts every type (GIF is only supported on X and Mastodon).',
 			options: [
 				{ name: 'Image', value: 'IMAGE' },
 				{ name: 'Video', value: 'VIDEO' },
+				{ name: 'GIF', value: 'GIF' },
 			],
 		},
 		{
@@ -173,129 +83,99 @@ const instagramTargets: INodeProperties = {
 			name: 'mediaUrl',
 			type: 'string',
 			default: '',
-			description:
-				'Public URL of the image or video to post. Required when this target is added and Media Source is By URL.',
+			description: 'Public URL of the media file',
 			displayOptions: { show: { mediaSource: ['url'] } },
 		},
-		{
-			displayName: 'Post as Story',
-			name: 'isStory',
-			type: 'boolean',
-			default: false,
-		},
 	],
 };
 
-const twitterTargets: INodeProperties = {
-	displayName: 'X (Twitter) Targets',
-	name: 'twitterTargets',
+// ---------------------------------------------------------------------------
+// Create Post: single "Targets" collection (one Add Target button for every
+// platform; the platform field drives which fields show and which account list
+// the picker loads)
+// ---------------------------------------------------------------------------
+const targets: INodeProperties = {
+	displayName: 'Targets',
+	name: 'targets',
 	type: 'collection',
 	typeOptions: {
 		multipleValues: true,
-		multipleValueButtonText: 'Add X Target',
+		multipleValueButtonText: 'Add Target',
 	},
 	default: {},
-	description: 'Publish this post to one or more X (Twitter) accounts',
+	description: 'Publish this post to one or more accounts or pages across any connected platform',
 	displayOptions: { show: showForPostCreate },
 	options: [
-		{ ...accountIdSelect('getTwitterAccounts'), displayName: 'X Account' },
 		{
-			displayName: 'Text',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description: 'The text of the post (up to 280 characters)',
+			displayName: 'Account',
+			name: 'accountId',
+			type: 'resourceLocator',
+			default: { mode: 'list', value: '' },
+			description: 'The connected SocialRobot account to publish to. Filtered to the platform selected above.',
+			modes: [
+				{
+					displayName: 'From List',
+					name: 'list',
+					type: 'list',
+					placeholder: 'Select an account...',
+					typeOptions: {
+						searchListMethod: 'getAccounts',
+						searchable: true,
+					},
+				},
+				{
+					displayName: 'By ID',
+					name: 'id',
+					type: 'string',
+					placeholder: 'e.g. instagram-account-id-123',
+				},
+			],
 		},
-		mediaCollection(['IMAGE', 'VIDEO', 'GIF']),
-	],
-};
-
-const linkedinTargets: INodeProperties = {
-	displayName: 'LinkedIn Targets',
-	name: 'linkedinTargets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add LinkedIn Target',
-	},
-	default: {},
-	description: 'Publish this post to one or more LinkedIn accounts or pages',
-	displayOptions: { show: showForPostCreate },
-	options: [
-		{ ...accountIdSelect('getLinkedinAccounts'), displayName: 'LinkedIn Account' },
 		{
-			displayName: 'Text',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description: 'The text of the post',
-		},
-		mediaCollection(['IMAGE', 'VIDEO']),
-		{
-			displayName: 'Visibility',
-			name: 'visibility',
+			displayName: 'Audience',
+			name: 'postVisibility',
 			type: 'options',
 			default: 'PUBLIC',
+			description: 'Who can see this LinkedIn post',
 			options: [
 				{ name: 'Public', value: 'PUBLIC' },
 				{ name: 'Connections Only', value: 'CONNECTIONS' },
 			],
+			displayOptions: { show: { platform: ['linkedin'] } },
 		},
 		{
-			displayName: 'First Comment',
-			name: 'firstComment',
+			displayName: 'Binary Property',
+			name: 'binaryPropertyName',
 			type: 'string',
-			typeOptions: { rows: 2 },
-			default: '',
-			description: 'A comment to add right after publishing (optional)',
+			default: 'data',
+			description:
+				'Name of the binary property on the input item that holds the media (for example "data"). The file is uploaded to SocialRobot automatically.',
+			displayOptions: { show: { platform: ['instagram'], mediaSource: ['binary'] } },
 		},
-	],
-};
-
-const blueskyTargets: INodeProperties = {
-	displayName: 'Bluesky Targets',
-	name: 'blueskyTargets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add Bluesky Target',
-	},
-	default: {},
-	description: 'Publish this post to one or more Bluesky accounts',
-	displayOptions: { show: showForPostCreate },
-	options: [
-		{ ...accountIdSelect('getBlueskyAccounts'), displayName: 'Bluesky Account' },
-		{
-			displayName: 'Text',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description: 'The text of the post (up to 300 characters)',
-		},
-	],
-};
-
-const pinterestTargets: INodeProperties = {
-	displayName: 'Pinterest Targets',
-	name: 'pinterestTargets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add Pinterest Target',
-	},
-	default: {},
-	description: 'Publish this post to one or more Pinterest boards',
-	displayOptions: { show: showForPostCreate },
-	options: [
 		{
 			displayName: 'Board ID',
 			name: 'boardId',
 			type: 'string',
 			default: '',
 			description: 'The Pinterest board to pin to',
+			displayOptions: { show: { platform: ['pinterest'] } },
+		},
+		{
+			displayName: 'Caption',
+			name: 'caption',
+			type: 'string',
+			typeOptions: { rows: 4 },
+			default: '',
+			description: 'The text or caption of the post',
+			displayOptions: { show: { platform: TEXT_PLATFORMS } },
+		},
+		{
+			displayName: 'Cover URL',
+			name: 'coverUrl',
+			type: 'string',
+			default: '',
+			description: 'Cover image URL for Instagram video posts (optional)',
+			displayOptions: { show: { platform: ['instagram'], mediaType: ['VIDEO'] } },
 		},
 		{
 			displayName: 'Description',
@@ -304,6 +184,16 @@ const pinterestTargets: INodeProperties = {
 			typeOptions: { rows: 3 },
 			default: '',
 			description: 'The pin description',
+			displayOptions: { show: { platform: ['pinterest'] } },
+		},
+		{
+			displayName: 'First Comment',
+			name: 'firstComment',
+			type: 'string',
+			typeOptions: { rows: 2 },
+			default: '',
+			description: 'A comment to add right after publishing (optional)',
+			displayOptions: { show: { platform: ['linkedin'] } },
 		},
 		{
 			displayName: 'Link',
@@ -311,41 +201,87 @@ const pinterestTargets: INodeProperties = {
 			type: 'string',
 			default: '',
 			description: 'Destination URL for the pin',
+			displayOptions: { show: { platform: ['pinterest'] } },
 		},
-		{ ...accountIdSelect('getPinterestAccounts'), displayName: 'Pinterest Account' },
+		mediaCollection,
 		{
-			displayName: 'Title',
-			name: 'title',
+			displayName: 'Media Source',
+			name: 'mediaSource',
+			type: 'options',
+			default: 'url',
+			description: 'Attach the media from a public URL or from binary data on the input item',
+			options: [
+				{ name: 'By URL', value: 'url' },
+				{ name: 'From Binary Data', value: 'binary' },
+			],
+			displayOptions: { show: { platform: ['instagram'] } },
+		},
+		{
+			displayName: 'Media Type',
+			name: 'mediaType',
+			type: 'options',
+			default: 'IMAGE',
+			options: [
+				{ name: 'Image', value: 'IMAGE' },
+				{ name: 'Video', value: 'VIDEO' },
+			],
+			displayOptions: { show: { platform: ['instagram'] } },
+		},
+		{
+			displayName: 'Media URL',
+			name: 'mediaUrl',
 			type: 'string',
 			default: '',
-			description: 'The pin title',
+			description:
+				'Public URL of the image or video to post. Required when Media Source is By URL.',
+			displayOptions: { show: { platform: ['instagram'], mediaSource: ['url'] } },
 		},
-		mediaCollection(['IMAGE']),
-	],
-};
-
-const tiktokTargets: INodeProperties = {
-	displayName: 'TikTok Targets',
-	name: 'tiktokTargets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add TikTok Target',
-	},
-	default: {},
-	description: 'Publish this post to one or more TikTok accounts',
-	displayOptions: { show: showForPostCreate },
-	options: [
-		{ ...accountIdSelect('getTiktokAccounts'), displayName: 'TikTok Account' },
 		{
-			displayName: 'Caption',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description: 'The caption for the TikTok post',
+			displayName: 'Platform',
+			name: 'platform',
+			type: 'options',
+			noDataExpression: true,
+			options: [
+				{ name: 'Bluesky', value: 'bluesky' },
+				{ name: 'Facebook', value: 'facebook' },
+				{ name: 'Instagram', value: 'instagram' },
+				{ name: 'LinkedIn', value: 'linkedin' },
+				{ name: 'Mastodon', value: 'mastodon' },
+				{ name: 'Pinterest', value: 'pinterest' },
+				{ name: 'Threads', value: 'threads' },
+				{ name: 'TikTok', value: 'tiktok' },
+				{ name: 'X (Twitter)', value: 'x' },
+			],
+			default: 'instagram',
+			description: 'The platform to publish this target to',
 		},
-		mediaCollection(['IMAGE', 'VIDEO']),
+		{
+			displayName: 'Post as Reel',
+			name: 'isReel',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to publish this Facebook post as a Reel',
+			displayOptions: { show: { platform: ['facebook'] } },
+		},
+		{
+			displayName: 'Post as Story',
+			name: 'isStory',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to publish this post as a Story',
+			displayOptions: { show: { platform: ['instagram', 'facebook'] } },
+		},
+		{
+			displayName: 'Post Mode',
+			name: 'postMode',
+			type: 'options',
+			default: 'DIRECT_POST',
+			options: [
+				{ name: 'Direct Post', value: 'DIRECT_POST' },
+				{ name: 'Upload (Inbox Draft)', value: 'UPLOAD' },
+			],
+			displayOptions: { show: { platform: ['tiktok'] } },
+		},
 		{
 			displayName: 'Privacy Level',
 			name: 'privacyLevel',
@@ -357,42 +293,16 @@ const tiktokTargets: INodeProperties = {
 				{ name: 'Followers', value: 'FOLLOWERS' },
 				{ name: 'Private', value: 'PRIVATE' },
 			],
+			displayOptions: { show: { platform: ['tiktok'] } },
 		},
 		{
-			displayName: 'Post Mode',
-			name: 'postMode',
-			type: 'options',
-			default: 'DIRECT_POST',
-			options: [
-				{ name: 'Direct Post', value: 'DIRECT_POST' },
-				{ name: 'Upload (Inbox Draft)', value: 'UPLOAD' },
-			],
-		},
-	],
-};
-
-const mastodonTargets: INodeProperties = {
-	displayName: 'Mastodon Targets',
-	name: 'mastodonTargets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add Mastodon Target',
-	},
-	default: {},
-	description: 'Publish this post to one or more Mastodon accounts',
-	displayOptions: { show: showForPostCreate },
-	options: [
-		{ ...accountIdSelect('getMastodonAccounts'), displayName: 'Mastodon Account' },
-		{
-			displayName: 'Text',
-			name: 'caption',
+			displayName: 'Title',
+			name: 'title',
 			type: 'string',
-			typeOptions: { rows: 4 },
 			default: '',
-			description: 'The text of the post',
+			description: 'The pin title',
+			displayOptions: { show: { platform: ['pinterest'] } },
 		},
-		mediaCollection(['IMAGE', 'VIDEO', 'GIF']),
 		{
 			displayName: 'Visibility',
 			name: 'visibility',
@@ -404,68 +314,7 @@ const mastodonTargets: INodeProperties = {
 				{ name: 'Followers Only', value: 'private' },
 				{ name: 'Direct', value: 'direct' },
 			],
-		},
-	],
-};
-
-const threadsTargets: INodeProperties = {
-	displayName: 'Threads Targets',
-	name: 'threadsTargets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add Threads Target',
-	},
-	default: {},
-	description: 'Publish this post to one or more Threads accounts',
-	displayOptions: { show: showForPostCreate },
-	options: [
-		{ ...accountIdSelect('getThreadsAccounts'), displayName: 'Threads Account' },
-		{
-			displayName: 'Caption',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description: 'The caption for the Threads post',
-		},
-		mediaCollection(['IMAGE', 'VIDEO']),
-	],
-};
-
-const facebookTargets: INodeProperties = {
-	displayName: 'Facebook Targets',
-	name: 'facebookTargets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add Facebook Target',
-	},
-	default: {},
-	description: 'Publish this post to one or more Facebook pages',
-	displayOptions: { show: showForPostCreate },
-	options: [
-		{ ...accountIdSelect('getFacebookAccounts'), displayName: 'Facebook Page' },
-		{
-			displayName: 'Caption',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description: 'The caption for the Facebook post (optional)',
-		},
-		mediaCollection(['IMAGE', 'VIDEO']),
-		{
-			displayName: 'Post as Reel',
-			name: 'isReel',
-			type: 'boolean',
-			default: false,
-		},
-		{
-			displayName: 'Post as Story',
-			name: 'isStory',
-			type: 'boolean',
-			default: false,
+			displayOptions: { show: { platform: ['mastodon'] } },
 		},
 	],
 };
@@ -543,16 +392,8 @@ export const postDescription: INodeProperties[] = [
 			show: { resource: ['post'], operation: ['create'], publishMode: ['SCHEDULE'] },
 		},
 	},
-	// --- Create: platform targets ---
-	instagramTargets,
-	twitterTargets,
-	linkedinTargets,
-	blueskyTargets,
-	pinterestTargets,
-	tiktokTargets,
-	mastodonTargets,
-	threadsTargets,
-	facebookTargets,
+	// --- Create: targets ---
+	targets,
 	// --- Get / Delete / Reschedule: post ID ---
 	{
 		displayName: 'Post ID',
