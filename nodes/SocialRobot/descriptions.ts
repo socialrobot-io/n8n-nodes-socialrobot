@@ -82,7 +82,7 @@ const mediaCollection: INodeProperties = {
 // (mirroring how the SocialRobot composer derives platform from the account).
 // ---------------------------------------------------------------------------
 const targets: INodeProperties = {
-	displayName: 'Targets',
+	displayName: 'Accounts',
 	name: 'targets',
 	type: 'collection',
 	typeOptions: {

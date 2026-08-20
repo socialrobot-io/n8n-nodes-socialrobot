@@ -124,7 +124,7 @@ async function buildInstagramTarget(
 ): Promise<IDataObject> {
 	const medias = await buildMedias.call(this, itemIndex, t.medias);
 	if (medias.length === 0) {
-		throw new Error('Instagram target is missing media. Add one media entry under Media.');
+		throw new Error('Instagram requires media. Add one media entry under Media.');
 	}
 	if (medias.length > 1) {
 		throw new Error('Instagram supports a single media file. Add only one media entry.');
@@ -229,14 +229,14 @@ export async function buildCreateBody(
 	const targets = toItems(this.getNodeParameter('targets', itemIndex, []));
 
 	if (targets.length === 0) {
-		throw new Error('Add at least one target. Click "Add Account" and select a connected account.');
+		throw new Error('Add at least one account. Click "Add Account" and select a connected account.');
 	}
 
 	for (const t of targets) {
 		const raw = extractId(t.accountId);
 		if (!raw) {
 			throw new Error(
-				'A target is missing an Account. Pick an account from the list, or switch to "By ID" and enter an account ID.',
+				'Select an account to publish to. Pick from the list, or switch to "By ID" and enter an account ID.',
 			);
 		}
 
@@ -264,7 +264,7 @@ export async function buildCreateBody(
 			case 'pinterest':
 				if (!(t.boardId as string)) {
 					throw new Error(
-						'Pinterest target is missing a Board ID. Enter the board to pin to under "Pinterest Board ID".',
+						'Pinterest requires a Board ID. Enter the board to pin to under "Pinterest Board ID".',
 					);
 				}
 				pinterestTargets.push(await buildPinterestTarget.call(this, itemIndex, t));
