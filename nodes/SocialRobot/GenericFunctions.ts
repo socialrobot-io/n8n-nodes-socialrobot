@@ -186,15 +186,11 @@ async function buildFacebookTarget(
 
 /**
  * Build the request body for POST /posts from the node's create-post
- * parameters. Each target is a connected account; its platform is looked up
- * from `accountPlatforms` (built once per execution) and used to group the
- * target into the per-platform arrays the SocialRobot API expects.
+ * parameters. Each target carries a `platform` discriminator (the n8n
+ * recommended pattern for conditional fields); the target is grouped into the
+ * per-platform arrays the SocialRobot API expects based on that value.
  */
-export async function buildCreateBody(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	accountPlatforms: Map<string, string>,
-): Promise<IDataObject> {
+export async function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): Promise<IDataObject> {
 	const publishMode = this.getNodeParameter('publishMode', itemIndex) as string;
 
 	const scheduledFor: IDataObject = { publish: publishMode };
@@ -215,21 +211,19 @@ export async function buildCreateBody(
 	const targets = toItems(this.getNodeParameter('targets', itemIndex, []));
 
 	if (targets.length === 0) {
-		throw new Error('Add at least one target. Click "Add Account" and select a connected account.');
+		throw new Error('Add at least one target. Click "Add Target" and select a platform and account.');
 	}
 
 	for (const t of targets) {
+		const platform = (t.platform as string) ?? '';
+		if (!platform) {
+			throw new Error('A target is missing a Platform. Select a platform for each target.');
+		}
+
 		const accountId = extractId(t.accountId);
 		if (!accountId) {
 			throw new Error(
 				'A target is missing an Account. Pick an account from the list, or switch to "By ID" and enter an account ID.',
-			);
-		}
-
-		const platform = accountPlatforms.get(accountId);
-		if (!platform) {
-			throw new Error(
-				`Account "${accountId}" was not found among your connected accounts. Check the account ID or reconnect it in SocialRobot.`,
 			);
 		}
 
@@ -267,7 +261,7 @@ export async function buildCreateBody(
 				facebookTargets.push(await buildFacebookTarget.call(this, itemIndex, t));
 				break;
 			default:
-				throw new Error(`Unsupported platform "${platform}" for account "${accountId}".`);
+				throw new Error(`Unsupported platform "${platform}".`);
 		}
 	}
 

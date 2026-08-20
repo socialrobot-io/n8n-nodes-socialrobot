@@ -9,8 +9,20 @@ const showForPostGetAll = { resource: ['post'], operation: ['getAll'] };
 const showForPostReschedule = { resource: ['post'], operation: ['reschedule'] };
 const showForAccount = { resource: ['account'] };
 
+// Platforms that accept media (everything except Bluesky, which is text-only).
+const MEDIA_PLATFORMS = [
+	'instagram',
+	'x',
+	'linkedin',
+	'pinterest',
+	'tiktok',
+	'mastodon',
+	'threads',
+	'facebook',
+];
+
 // ---------------------------------------------------------------------------
-// Media collection (shared by every platform that accepts media)
+// Media collection (shown for every platform that accepts media)
 // ---------------------------------------------------------------------------
 const mediaCollection: INodeProperties = {
 	displayName: 'Media',
@@ -22,6 +34,7 @@ const mediaCollection: INodeProperties = {
 	},
 	default: {},
 	description: 'Media files to attach to this post',
+	displayOptions: { show: { platform: MEDIA_PLATFORMS } },
 	options: [
 		{
 			displayName: 'Alt Text',
@@ -75,9 +88,11 @@ const mediaCollection: INodeProperties = {
 };
 
 // ---------------------------------------------------------------------------
-// Create Post: single "Targets" collection. Each target is one connected
-// account; the account's platform is inferred at runtime, so there is no
-// separate platform selector to keep in sync.
+// Create Post: single "Targets" collection. Each target picks a platform,
+// which drives which fields show and how the account maps into the request
+// body. This is the n8n-recommended discriminator pattern (like Resource /
+// Operation), because n8n can only conditionally show fields off an explicit
+// parameter value.
 // ---------------------------------------------------------------------------
 const targets: INodeProperties = {
 	displayName: 'Targets',
@@ -85,18 +100,38 @@ const targets: INodeProperties = {
 	type: 'collection',
 	typeOptions: {
 		multipleValues: true,
-		multipleValueButtonText: 'Add Account',
+		multipleValueButtonText: 'Add Target',
 	},
 	default: {},
 	description: 'Publish this post to one or more connected accounts',
 	displayOptions: { show: showForPostCreate },
 	options: [
 		{
+			displayName: 'Platform',
+			name: 'platform',
+			type: 'options',
+			noDataExpression: true,
+			options: [
+				{ name: 'Bluesky', value: 'bluesky' },
+				{ name: 'Facebook', value: 'facebook' },
+				{ name: 'Instagram', value: 'instagram' },
+				{ name: 'LinkedIn', value: 'linkedin' },
+				{ name: 'Mastodon', value: 'mastodon' },
+				{ name: 'Pinterest', value: 'pinterest' },
+				{ name: 'Threads', value: 'threads' },
+				{ name: 'TikTok', value: 'tiktok' },
+				{ name: 'X (Twitter)', value: 'x' },
+			],
+			default: 'instagram',
+			description: 'The platform to publish this target to. Determines which fields appear below.',
+		},
+		{
 			displayName: 'Account',
 			name: 'accountId',
 			type: 'resourceLocator',
 			default: { mode: 'list', value: '' },
-			description: 'The connected SocialRobot account to publish to',
+			description:
+				'The connected SocialRobot account to publish to. Make sure it matches the platform selected above.',
 			modes: [
 				{
 					displayName: 'From List',
@@ -131,8 +166,8 @@ const targets: INodeProperties = {
 			name: 'boardId',
 			type: 'string',
 			default: '',
-			description:
-				'The Pinterest board to pin to. Only needed when the selected account is a Pinterest account.',
+			description: 'The Pinterest board to pin to',
+			displayOptions: { show: { platform: ['pinterest'] } },
 		},
 	],
 };
