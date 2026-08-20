@@ -114,13 +114,17 @@ export async function getAccounts(
 		const displayName = (account.displayName as string) || '';
 		const handle = (account.handle as string) || '';
 		const platform = (account.platform as string) || '';
+		const accountId = account.id as string;
 		const label = [displayName, handle ? `@${handle}` : null, platform]
 			.filter(Boolean)
 			.join(' · ');
 
 		return {
-			name: label || (account.id as string),
-			value: account.id as string,
+			name: label || accountId,
+			// Encode the platform in the stored value so the node can show the
+			// right platform-specific fields for the selected account (n8n has
+			// no way to derive a field from a plain resource-locator id).
+			value: platform ? `${platform}:${accountId}` : accountId,
 			description: platform,
 			url: (account.profileImage as string) || undefined,
 		};

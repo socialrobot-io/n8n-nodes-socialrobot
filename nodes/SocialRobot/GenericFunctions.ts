@@ -36,6 +36,19 @@ export function extractId(value: unknown): string {
 	return '';
 }
 
+/**
+ * Split an account value into its platform and account id. The account picker
+ * stores values as `platform:accountId` so platform-specific fields can be
+ * shown; the "By ID" mode stores a plain account id with no platform prefix.
+ */
+function splitAccountValue(value: string): { platform: string | undefined; accountId: string } {
+	const idx = value.indexOf(':');
+	if (idx > 0) {
+		return { platform: value.slice(0, idx), accountId: value.slice(idx + 1) };
+	}
+	return { platform: undefined, accountId: value };
+}
+
 const MIME_TO_EXT: Record<string, string> = {
 	'image/jpeg': 'jpg',
 	'image/png': 'png',
@@ -186,11 +199,16 @@ async function buildFacebookTarget(
 
 /**
  * Build the request body for POST /posts from the node's create-post
- * parameters. Each target carries a `platform` discriminator (the n8n
- * recommended pattern for conditional fields); the target is grouped into the
- * per-platform arrays the SocialRobot API expects based on that value.
+ * parameters. Each target is an account whose platform is encoded in the
+ * account value (or looked up from `accountPlatforms` when the account was
+ * entered By ID); targets are grouped into the per-platform arrays the
+ * SocialRobot API expects.
  */
-export async function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): Promise<IDataObject> {
+export async function buildCreateBody(
+	this: IExecuteFunctions,
+	itemIndex: number,
+	accountPlatforms: Map<string, string>,
+): Promise<IDataObject> {
 	const publishMode = this.getNodeParameter('publishMode', itemIndex) as string;
 
 	const scheduledFor: IDataObject = { publish: publishMode };
@@ -211,19 +229,22 @@ export async function buildCreateBody(this: IExecuteFunctions, itemIndex = 0): P
 	const targets = toItems(this.getNodeParameter('targets', itemIndex, []));
 
 	if (targets.length === 0) {
-		throw new Error('Add at least one target. Click "Add Target" and select a platform and account.');
+		throw new Error('Add at least one target. Click "Add Account" and select a connected account.');
 	}
 
 	for (const t of targets) {
-		const platform = (t.platform as string) ?? '';
-		if (!platform) {
-			throw new Error('A target is missing a Platform. Select a platform for each target.');
-		}
-
-		const accountId = extractId(t.accountId);
-		if (!accountId) {
+		const raw = extractId(t.accountId);
+		if (!raw) {
 			throw new Error(
 				'A target is missing an Account. Pick an account from the list, or switch to "By ID" and enter an account ID.',
+			);
+		}
+
+		const { platform: valuePlatform, accountId } = splitAccountValue(raw);
+		const platform = valuePlatform ?? accountPlatforms.get(accountId);
+		if (!platform) {
+			throw new Error(
+				`Account "${accountId}" was not found among your connected accounts. Check the account ID or reconnect it in SocialRobot.`,
 			);
 		}
 
