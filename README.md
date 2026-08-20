@@ -31,7 +31,7 @@ After installation, **SocialRobot** appears in the node panel under the Input ca
 
 ### Post
 
-- **Create** — Create a single scheduled item that can target multiple connected social accounts at once. Supports draft, publish-now, and scheduled posting with per-platform targets and media.
+- **Create** — Create a single scheduled item that can target multiple connected social accounts at once. Supports draft, publish-now, and scheduled posting with per-platform targets. Media is attached inside each target, either as a public URL or as binary data from the input item (uploaded to SocialRobot automatically).
 - **Get** — Fetch a single post by ID.
 - **Get Many** — List posts with optional filters (status, platform, scheduled date range) and cursor pagination, including a **Return All** option.
 - **Delete** — Delete a post by ID.
@@ -40,10 +40,6 @@ After installation, **SocialRobot** appears in the node panel under the Input ca
 ### Account
 
 - **Get Many** — List all connected social accounts. Useful to discover account IDs (or just use the account picker, which loads them automatically).
-
-### Media
-
-- **Get Upload URL** — Generate a presigned upload URL to PUT a media file directly to SocialRobot storage. The response returns the public URL you can then pass as a `mediaUrl` when creating a post.
 
 ## Credentials
 
@@ -79,16 +75,18 @@ Use the **Test** button to verify the credential. It calls `GET /accounts` and s
 3. Set **Schedule Type** to **Schedule** and choose a **Schedule Date**.
 4. Under **X (Twitter) Targets**, add a target, pick the account from the list, and type the post text.
 5. Under **LinkedIn Targets**, add a target, pick the account, and type the text.
-6. Optionally add media with the **Media** option inside each target.
+6. Optionally add media inside each target, either as a public URL or as binary data from the input item.
 
 The node returns the created post ID (`{ "id": "..." }`).
 
-### Upload media first, then reference it in a post
+### Post media from binary data
 
-1. Add a **SocialRobot** node with **Resource** = **Media** and **Operation** = **Get Upload URL**.
-2. Enter a **File Name** and **Content Type**.
-3. `PUT` the file to the returned `presignedUrl` (for example with an **HTTP Request** node).
-4. Use the returned `url` as the **Media URL** in a **Post → Create** node.
+1. Add an **HTTP Request** node that downloads an image, with **Response Format** set to **File**. This saves the response as binary data under the `data` property.
+2. Add a **SocialRobot** node with **Resource** = **Post** and **Operation** = **Create**.
+3. Under **Instagram Targets**, add a target, pick the account, and set **Media Source** to **From Binary Data** with **Binary Property** set to `data`.
+4. The node uploads the binary file to SocialRobot storage automatically and uses the resulting URL in the post.
+
+To reference a public media URL instead, leave **Media Source** set to **By URL** and paste the URL into **Media URL**.
 
 ### Filter scheduled posts
 
@@ -102,6 +100,10 @@ Set **Resource** = **Post** and **Operation** = **Get Many**, then add a **Filte
 
 ## Version history
 
-### 0.1.0
+### 1.0.5
 
-Initial release with Post (Create, Get, Get Many, Delete, Reschedule), Account (Get Many), and Media (Get Upload URL) operations.
+Added binary media upload in Create Post (Media Source: By URL or From Binary Data) and removed the standalone Media resource.
+
+### 1.0.0
+
+Initial release with Post (Create, Get, Get Many, Delete, Reschedule) and Account (Get Many) operations.
