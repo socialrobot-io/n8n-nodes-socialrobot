@@ -8,8 +8,8 @@ import {
 	type INodeTypeDescription,
 } from 'n8n-workflow';
 import { accountDescription, postDescription } from './descriptions';
-import { buildCreateBody, buildListQuery } from './GenericFunctions';
-import { getAccounts, socialRobotApiRequest } from './transport';
+import { buildListQuery } from './GenericFunctions';
+import { socialRobotApiRequest } from './transport';
 
 /**
  * Fetch every post across all pages when Return All is enabled. The SocialRobot
@@ -50,7 +50,7 @@ export class SocialRobot implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"]}}',
 		description:
-			'Schedule and publish posts across Instagram, X, LinkedIn, TikTok, Facebook, Pinterest, Bluesky, Mastodon, and Threads using the SocialRobot API',
+			'Manage SocialRobot posts and connected accounts: get, list, delete, and reschedule posts, and list accounts',
 		defaults: { name: 'SocialRobot' },
 		usableAsTool: true,
 		inputs: [NodeConnectionTypes.Main],
@@ -73,12 +73,6 @@ export class SocialRobot implements INodeType {
 		],
 	};
 
-	methods = {
-		listSearch: {
-			getAccounts,
-		},
-	};
-
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
@@ -86,30 +80,12 @@ export class SocialRobot implements INodeType {
 		const resource = this.getNodeParameter('resource', 0) as string;
 		const operation = this.getNodeParameter('operation', 0) as string;
 
-		// For Create Post, load the connected accounts once and map account id to
-		// platform. Targets selected From List carry their platform in the value,
-		// but By ID targets need this lookup to resolve their platform.
-		const accountPlatforms = new Map<string, string>();
-		if (resource === 'post' && operation === 'create') {
-			const accounts = (await socialRobotApiRequest.call(this, 'GET', '/accounts')) as IDataObject[];
-			if (Array.isArray(accounts)) {
-				for (const account of accounts) {
-					if (account.id && account.platform) {
-						accountPlatforms.set(String(account.id), String(account.platform));
-					}
-				}
-			}
-		}
-
 		for (let i = 0; i < items.length; i++) {
 			try {
 				let responseData: unknown;
 
 				if (resource === 'account') {
 					responseData = await socialRobotApiRequest.call(this, 'GET', '/accounts');
-				} else if (resource === 'post' && operation === 'create') {
-					const body = await buildCreateBody.call(this, i, accountPlatforms);
-					responseData = await socialRobotApiRequest.call(this, 'POST', '/posts', body);
 				} else if (resource === 'post' && operation === 'get') {
 					const postId = this.getNodeParameter('postId', i) as string;
 					responseData = await socialRobotApiRequest.call(this, 'GET', `/posts/${postId}`);

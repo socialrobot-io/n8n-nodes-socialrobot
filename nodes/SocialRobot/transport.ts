@@ -82,53 +82,49 @@ export async function uploadMedia(
 }
 
 /**
- * Account resource-locator source. Lists every connected account across all
- * platforms, with the platform shown in each label. The node infers each
- * account's platform at execution time, so no platform filter is needed here.
- * The optional `filter` is the text the user types in the picker.
+ * Account resource-locator source factory. Each publish node registers a
+ * getter scoped to its platform, so the account picker only lists connected
+ * accounts for that platform. The optional `filter` is the text the user types
+ * in the picker.
  */
-export async function getAccounts(
-	this: ILoadOptionsFunctions,
-	filter?: string,
-): Promise<INodeListSearchResult> {
-	const responseData = (await socialRobotApiRequest.call(
-		this,
-		'GET',
-		'/accounts',
-	)) as IDataObject[];
+export function makeAccountGetter(
+	platform: string,
+): (this: ILoadOptionsFunctions, filter?: string) => Promise<INodeListSearchResult> {
+	return async function (this: ILoadOptionsFunctions, filter?: string): Promise<INodeListSearchResult> {
+		const responseData = (await socialRobotApiRequest.call(
+			this,
+			'GET',
+			'/accounts',
+		)) as IDataObject[];
 
-	let accounts = Array.isArray(responseData) ? responseData : [];
+		let accounts = Array.isArray(responseData) ? responseData : [];
 
-	if (filter) {
-		const needle = filter.toLowerCase();
-		accounts = accounts.filter((account) =>
-			[account.displayName, account.handle, account.platform].some((value) =>
-				String(value ?? '')
-					.toLowerCase()
-					.includes(needle),
-			),
-		);
-	}
+		accounts = accounts.filter((account) => String(account.platform) === platform);
 
-	const results: INodeListSearchItems[] = accounts.map((account) => {
-		const displayName = (account.displayName as string) || '';
-		const handle = (account.handle as string) || '';
-		const platform = (account.platform as string) || '';
-		const accountId = account.id as string;
-		const label = [displayName, handle ? `@${handle}` : null, platform]
-			.filter(Boolean)
-			.join(' · ');
+		if (filter) {
+			const needle = filter.toLowerCase();
+			accounts = accounts.filter((account) =>
+				[account.displayName, account.handle].some((value) =>
+					String(value ?? '')
+						.toLowerCase()
+						.includes(needle),
+				),
+			);
+		}
 
-		return {
-			name: label || accountId,
-			// Encode the platform in the stored value so the node can show the
-			// right platform-specific fields for the selected account (n8n has
-			// no way to derive a field from a plain resource-locator id).
-			value: platform ? `${platform}:${accountId}` : accountId,
-			description: platform,
-			url: (account.profileImage as string) || undefined,
-		};
-	});
+		const results: INodeListSearchItems[] = accounts.map((account) => {
+			const displayName = (account.displayName as string) || '';
+			const handle = (account.handle as string) || '';
+			const accountId = account.id as string;
+			const label = [displayName, handle ? `@${handle}` : null].filter(Boolean).join(' · ');
 
-	return { results };
+			return {
+				name: label || accountId,
+				value: accountId,
+				url: (account.profileImage as string) || undefined,
+			};
+		});
+
+		return { results };
+	};
 }

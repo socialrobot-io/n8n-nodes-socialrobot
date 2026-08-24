@@ -1,6 +1,6 @@
 {
 	"name": "@socialrobot-io/n8n-nodes-socialrobot",
-	"version": "1.1.4",
+	"version": "2.0.0",
 	"description": "n8n community node for SocialRobot.io: schedule and publish posts across Instagram, X, LinkedIn, TikTok, Facebook, Pinterest, Bluesky, Mastodon, and Threads",
 	"license": "MIT",
 	"homepage": "https://socialrobot.io",
@@ -42,7 +42,16 @@
 			"dist/credentials/SocialRobotApi.credentials.js"
 		],
 		"nodes": [
-			"dist/nodes/SocialRobot/SocialRobot.node.js"
+			"dist/nodes/SocialRobot/SocialRobot.node.js",
+			"dist/nodes/PublishBluesky/PublishBluesky.node.js",
+			"dist/nodes/PublishFacebook/PublishFacebook.node.js",
+			"dist/nodes/PublishInstagram/PublishInstagram.node.js",
+			"dist/nodes/PublishLinkedIn/PublishLinkedIn.node.js",
+			"dist/nodes/PublishMastodon/PublishMastodon.node.js",
+			"dist/nodes/PublishPinterest/PublishPinterest.node.js",
+			"dist/nodes/PublishThreads/PublishThreads.node.js",
+			"dist/nodes/PublishTikTok/PublishTikTok.node.js",
+			"dist/nodes/PublishX/PublishX.node.js"
 		]
 	},
 	"devDependencies": {

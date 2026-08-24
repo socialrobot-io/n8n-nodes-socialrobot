@@ -2,12 +2,12 @@
 
 This is an [n8n](https://n8n.io/) community node. It lets you use [SocialRobot.io](https://socialrobot.io) in your n8n workflows.
 
-SocialRobot is a social media scheduler that lets you queue a week of posts in one sitting and publish across Instagram, X (Twitter), LinkedIn, TikTok, Facebook, Pinterest, Bluesky, Mastodon, and Threads. This node exposes the SocialRobot Scheduler API so you can build scheduling and publishing directly into your automations.
+SocialRobot is a social media scheduler that lets you queue a week of posts in one sitting and publish across Instagram, X (Twitter), LinkedIn, TikTok, Facebook, Pinterest, Bluesky, Mastodon, and Threads. This package exposes the SocialRobot Scheduler API so you can build scheduling and publishing directly into your automations.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
 [Installation](#installation)
-[Operations](#operations)
+[Nodes](#nodes)
 [Credentials](#credentials)
 [Compatibility](#compatibility)
 [Usage](#usage)
@@ -25,25 +25,41 @@ In short:
 3. Enter `@socialrobot-io/n8n-nodes-socialrobot` in the **npm package name** field.
 4. Select **Install**.
 
-After installation, **SocialRobot** appears in the node panel under the Input category.
+## Nodes
 
-## Operations
+The package ships ten nodes: one **SocialRobot** node for managing posts and accounts, and nine **Publish to ...** nodes, one per platform. Each publish node only shows the fields that platform actually supports, and its account picker only lists accounts on that platform.
 
-### Post
+### Publish to ... (one node per platform)
 
-- **Create** — Create a single scheduled item that can target multiple connected social accounts at once. Supports draft, publish-now, and scheduled posting. Each target is one connected account in a single **Targets** collection; the node infers the platform from the account and shows the relevant fields (a Pinterest account shows a **Board ID**, a Bluesky account hides the media fields). Media is attached inside each target, either as a public URL or as binary data from the input item (uploaded to SocialRobot automatically).
-- **Get** — Fetch a single post by ID.
-- **Get Many** — List posts with optional filters (status, platform, scheduled date range) and cursor pagination, including a **Return All** option.
-- **Delete** — Delete a post by ID.
-- **Reschedule** — Change the scheduled publish time of a post.
+Each of these creates a single post for a connected account on that platform. Every node shares the same shape: an **Account** picker, a **Caption**, platform-specific media fields, and **Schedule Type** (Draft, Publish Now, or Schedule) with an optional **Schedule Date**.
 
-### Account
+| Node | Media model |
+| --- | --- |
+| Publish to Instagram | Single image or video (required) |
+| Publish to X (Twitter) | Multiple media, up to 4; GIF supported |
+| Publish to LinkedIn | Image or video post (required) |
+| Publish to TikTok | Photo or video post (required) |
+| Publish to Facebook | Optional media |
+| Publish to Pinterest | Image or video pin (required), plus a **Board ID** |
+| Publish to Bluesky | Text only |
+| Publish to Mastodon | Optional images/videos |
+| Publish to Threads | Optional media |
 
-- **Get Many** — List all connected social accounts. Useful to discover account IDs (or just use the account picker, which loads them automatically).
+Media is attached either as a public URL or as binary data from the input item (uploaded to SocialRobot storage automatically).
+
+### SocialRobot
+
+Management operations for posts and accounts:
+
+- **Post → Get** — Fetch a single post by ID.
+- **Post → Get Many** — List posts with optional filters (status, platform, scheduled date range) and cursor pagination, including a **Return All** option.
+- **Post → Delete** — Delete a post by ID.
+- **Post → Reschedule** — Change the scheduled publish time of a post.
+- **Account → Get Many** — List all connected social accounts. Useful to discover account IDs (or just use the account picker, which loads them automatically).
 
 ## Credentials
 
-The node authenticates with a SocialRobot API key.
+The nodes authenticate with a SocialRobot API key.
 
 ### Prerequisites
 
@@ -68,31 +84,28 @@ Use the **Test** button to verify the credential. It calls `GET /accounts` and s
 
 ## Usage
 
-### Create a post and publish it to X and LinkedIn
+### Publish a scheduled post to X
 
-1. Add a **SocialRobot** node.
-2. Set **Resource** to **Post** and **Operation** to **Create**.
-3. Set **Schedule Type** to **Schedule** and choose a **Schedule Date**.
-4. Click **Add Account**, pick an X (Twitter) account from the list, and type the post text.
-5. Click **Add Account** again, pick a LinkedIn account, and type the text.
-6. Optionally add media under each target's **Media** collection, either as a public URL or as binary data from the input item.
+1. Add a **Publish to X (Twitter)** node.
+2. Pick your X account from the **Account** dropdown.
+3. Type the post text in **Caption**.
+4. Set **Schedule Type** to **Schedule** and choose a **Schedule Date**.
 
 The node returns the created post ID (`{ "id": "..." }`).
 
 ### Post media from binary data
 
 1. Add an **HTTP Request** node that downloads an image, with **Response Format** set to **File**. This saves the response as binary data under the `data` property.
-2. Add a **SocialRobot** node with **Resource** = **Post** and **Operation** = **Create**.
-3. Click **Add Account**, pick an Instagram account, then add a **Media** entry and set **Media Source** to **From Binary Data** with **Binary Property** set to `data`.
-4. The node uploads the binary file to SocialRobot storage automatically and uses the resulting URL in the post.
+2. Add a **Publish to Instagram** node and pick your Instagram account.
+3. Set **Media Source** to **From Binary Data** and leave **Binary Property** as `data`.
 
-To reference a public media URL instead, leave **Media Source** set to **By URL** and paste the URL into **Media URL**.
+The node uploads the binary file to SocialRobot storage automatically and uses the resulting URL in the post. To reference a public media URL instead, leave **Media Source** set to **By URL** and paste the URL into **Media URL**.
 
-Media is attached through each target's **Media** collection. Most platforms accept multiple entries; Instagram accepts a single media entry. Each media entry has its own **Media Source**, **Media Type**, and URL or binary property. For Pinterest targets, set the **Pinterest Board ID** on the target.
+For platforms with a **Media** collection (X, Threads, Facebook, TikTok, LinkedIn, Pinterest, Mastodon), click **Add Media** to attach one or more entries; each entry has its own **Media Source**, **Media Type**, and URL or binary property. For **Publish to Pinterest**, also set the **Pinterest Board ID**.
 
 ### Filter scheduled posts
 
-Set **Resource** = **Post** and **Operation** = **Get Many**, then add a **Filters** entry with **Status** = **Scheduled** to list everything waiting to publish.
+Add a **SocialRobot** node, set **Resource** to **Post** and **Operation** to **Get Many**, then add a **Filters** entry with **Status** = **Scheduled** to list everything waiting to publish.
 
 ## Resources
 
@@ -101,6 +114,10 @@ Set **Resource** = **Post** and **Operation** = **Get Many**, then add a **Filte
 - [SocialRobot API documentation](https://socialrobot.io/scheduler/api-docs)
 
 ## Version history
+
+### 2.0.0
+
+Split the single node into nine per-platform **Publish to ...** nodes plus a management-only **SocialRobot** node. Each publish node exposes only that platform's fields (no conditional gating), scopes its account picker to the platform, and sends the exact request shape the API expects per platform (nested media for LinkedIn/TikTok/Pinterest, name/size media for Mastodon, text-only for Bluesky).
 
 ### 1.0.5
 

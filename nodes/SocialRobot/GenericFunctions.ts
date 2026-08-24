@@ -2,6 +2,21 @@ import type { IBinaryData, IDataObject, IExecuteFunctions } from 'n8n-workflow';
 import { uploadMedia } from './transport';
 
 /**
+ * The platforms SocialRobot can publish to. The n8n package exposes one publish
+ * node per platform; this union keeps the shared body builder type-safe.
+ */
+export type Platform =
+	| 'instagram'
+	| 'x'
+	| 'linkedin'
+	| 'bluesky'
+	| 'pinterest'
+	| 'tiktok'
+	| 'mastodon'
+	| 'threads'
+	| 'facebook';
+
+/**
  * Normalise a collection value (which n8n may return as an array, a single
  * object, an empty object, or undefined depending on how many entries the
  * user added) into an array of items.
@@ -36,19 +51,6 @@ export function extractId(value: unknown): string {
 	return '';
 }
 
-/**
- * Split an account value into its platform and account id. The account picker
- * stores values as `platform:accountId` so platform-specific fields can be
- * shown; the "By ID" mode stores a plain account id with no platform prefix.
- */
-function splitAccountValue(value: string): { platform: string | undefined; accountId: string } {
-	const idx = value.indexOf(':');
-	if (idx > 0) {
-		return { platform: value.slice(0, idx), accountId: value.slice(idx + 1) };
-	}
-	return { platform: undefined, accountId: value };
-}
-
 const MIME_TO_EXT: Record<string, string> = {
 	'image/jpeg': 'jpg',
 	'image/png': 'png',
@@ -67,43 +69,57 @@ function inferFileName(binaryData: IBinaryData): string {
 	return `media.${MIME_TO_EXT[mimeType] || 'bin'}`;
 }
 
+/** Best-effort filename from a public URL (used for Mastodon's `name` field). */
+function deriveNameFromUrl(url: string): string {
+	const clean = url.split('?')[0].split('#')[0];
+	const segment = clean.split('/').filter(Boolean).pop();
+	return segment || 'media';
+}
+
+interface ResolvedMedia {
+	url: string;
+	name: string;
+	size: number;
+}
+
 /**
- * Resolve a media entry to a public URL. When the media source is binary, the
- * file is uploaded to SocialRobot storage first and the resulting URL returned.
- * Otherwise the provided public URL is returned unchanged.
+ * Resolve a media reference to a public URL, filename and size. When the media
+ * source is binary, the file is uploaded to SocialRobot storage first and the
+ * resulting URL returned (alongside the original name and byte size). Otherwise
+ * the provided public URL is returned with a derived name and size 0.
  */
-async function resolveMediaUrl(
+async function resolveMediaRef(
 	this: IExecuteFunctions,
 	itemIndex: number,
 	media: IDataObject,
-): Promise<string> {
+): Promise<ResolvedMedia> {
 	if (media.mediaSource === 'binary') {
 		const propertyName = (media.binaryPropertyName as string) || 'data';
 		const binaryData = this.helpers.assertBinaryData(itemIndex, propertyName);
 		const buffer = await this.helpers.getBinaryDataBuffer(itemIndex, propertyName);
-		const fileName = inferFileName(binaryData);
+		const name = inferFileName(binaryData);
 		const mimeType = binaryData.mimeType || 'application/octet-stream';
-		return uploadMedia.call(this, fileName, mimeType, buffer);
+		const url = await uploadMedia.call(this, name, mimeType, buffer);
+		return { url, name, size: buffer.length };
 	}
-	return (media.mediaUrl as string) || '';
+	const url = (media.mediaUrl as string) || '';
+	return { url, name: deriveNameFromUrl(url), size: 0 };
+}
+
+function readMediaItems(this: IExecuteFunctions, itemIndex: number): IDataObject[] {
+	return toItems(this.getNodeParameter('medias', itemIndex, []));
 }
 
 /**
- * Map a `medias` collection value into the array shape the SocialRobot API
- * expects: [{ mediaType, mediaUrl, altText? }], uploading binary media first.
+ * Flat media array `[{ mediaType, mediaUrl, altText? }]` used by X, Threads,
+ * and Facebook.
  */
-async function buildMedias(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	value: unknown,
-): Promise<IDataObject[]> {
-	const items = toItems(value);
+async function buildFlatMedias(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject[]> {
+	const items = readMediaItems.call(this, itemIndex);
 	const result: IDataObject[] = [];
 	for (const media of items) {
-		const item: IDataObject = {
-			mediaType: media.mediaType ?? 'IMAGE',
-			mediaUrl: await resolveMediaUrl.call(this, itemIndex, media),
-		};
+		const { url } = await resolveMediaRef.call(this, itemIndex, media);
+		const item: IDataObject = { mediaType: media.mediaType ?? 'IMAGE', mediaUrl: url };
 		if (media.altText) {
 			item.altText = media.altText;
 		}
@@ -113,191 +129,183 @@ async function buildMedias(
 }
 
 /**
- * Build an Instagram target. Instagram uses a single media item (mediaType +
- * mediaUrl) rather than a `medias` array, so it is read from the first entry
- * of the shared Media collection.
+ * Nested media object `{ mediaType, medias: [{ mediaUrl, altText? }] }` used by
+ * TikTok, LinkedIn, and Pinterest. These platforms require at least one media.
  */
-async function buildInstagramTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	const medias = await buildMedias.call(this, itemIndex, t.medias);
-	if (medias.length === 0) {
-		throw new Error('Instagram requires media. Add one media entry under Media.');
+async function buildNestedMedias(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const items = readMediaItems.call(this, itemIndex);
+	if (items.length === 0) {
+		throw new Error('This platform requires media. Add at least one media entry.');
 	}
-	if (medias.length > 1) {
-		throw new Error('Instagram supports a single media file. Add only one media entry.');
+	const mediaType = (items[0].mediaType as string) || 'IMAGE';
+	const medias: IDataObject[] = [];
+	for (const media of items) {
+		const { url } = await resolveMediaRef.call(this, itemIndex, media);
+		const item: IDataObject = { mediaUrl: url };
+		if (media.altText) {
+			item.altText = media.altText;
+		}
+		medias.push(item);
 	}
-	const first = medias[0];
-	return {
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		mediaType: first.mediaType ?? 'IMAGE',
-		mediaUrl: first.mediaUrl,
-	};
+	return { mediaType, medias };
 }
 
 /**
- * Build a target for the platforms that share the `{ accountId, caption,
- * medias[] }` shape: X, LinkedIn, TikTok, Mastodon, and Threads.
+ * Mastodon media array `[{ name, mediaUrl, size, mediaType, alt? }]`. Mastodon
+ * requires a filename and byte size per media, which we can only know exactly
+ * for binary input (URL media uses a derived name and size 0).
  */
-async function buildCaptionMediaTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	return {
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-		medias: await buildMedias.call(this, itemIndex, t.medias),
-	};
+async function buildMastodonMedias(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject[]> {
+	const items = readMediaItems.call(this, itemIndex);
+	const result: IDataObject[] = [];
+	for (const media of items) {
+		const { url, name, size } = await resolveMediaRef.call(this, itemIndex, media);
+		const item: IDataObject = { name, mediaUrl: url, size, mediaType: media.mediaType ?? 'IMAGE' };
+		if (media.altText) {
+			item.alt = media.altText;
+		}
+		result.push(item);
+	}
+	return result;
 }
 
-async function buildBlueskyTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	return {
-		accountId: extractId(t.accountId),
-		caption: (t.caption as string) ?? '',
-	};
+/**
+ * Read the shared account + caption parameters that every publish node has.
+ */
+function baseTarget(this: IExecuteFunctions, itemIndex: number): { accountId: string; caption: string } {
+	const accountId = extractId(this.getNodeParameter('accountId', itemIndex));
+	if (!accountId) {
+		throw new Error(
+			'Select an account to publish to. Pick from the list, or switch to "By ID" and enter an account ID.',
+		);
+	}
+	const caption = (this.getNodeParameter('caption', itemIndex, '') as string) ?? '';
+	return { accountId, caption };
 }
 
-async function buildPinterestTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
-	const target: IDataObject = {
-		accountId: extractId(t.accountId),
-		boardId: (t.boardId as string) ?? '',
-		mediaType: 'IMAGE',
-		medias: await buildMedias.call(this, itemIndex, t.medias),
-	};
-	if (t.caption) {
-		target.description = t.caption;
+async function buildInstagramTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	const mediaSource = this.getNodeParameter('mediaSource', itemIndex, 'url') as string;
+	const { url } = await resolveMediaRef.call(this, itemIndex, {
+		mediaSource,
+		mediaUrl: this.getNodeParameter('mediaUrl', itemIndex, '') as string,
+		binaryPropertyName: this.getNodeParameter('binaryPropertyName', itemIndex, 'data') as string,
+	});
+	if (!url) {
+		throw new Error('Instagram requires media. Provide a media URL or binary data.');
+	}
+	const mediaType = this.getNodeParameter('mediaType', itemIndex, 'IMAGE') as string;
+	return { accountId, caption, mediaType, mediaUrl: url };
+}
+
+async function buildTwitterTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	return { accountId, caption, medias: await buildFlatMedias.call(this, itemIndex) };
+}
+
+async function buildThreadsTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	return { accountId, caption, medias: await buildFlatMedias.call(this, itemIndex) };
+}
+
+async function buildFacebookTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	const target: IDataObject = { accountId, medias: await buildFlatMedias.call(this, itemIndex) };
+	if (caption) {
+		target.caption = caption;
 	}
 	return target;
 }
 
-async function buildFacebookTarget(
-	this: IExecuteFunctions,
-	itemIndex: number,
-	t: IDataObject,
-): Promise<IDataObject> {
+async function buildBlueskyTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	return baseTarget.call(this, itemIndex);
+}
+
+async function buildMastodonTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	return { accountId, caption, medias: await buildMastodonMedias.call(this, itemIndex) };
+}
+
+async function buildTiktokTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	return { accountId, caption, medias: await buildNestedMedias.call(this, itemIndex) };
+}
+
+async function buildLinkedinTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	return { accountId, caption, medias: await buildNestedMedias.call(this, itemIndex) };
+}
+
+async function buildPinterestTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
+	const { accountId, caption } = baseTarget.call(this, itemIndex);
+	const boardId = this.getNodeParameter('boardId', itemIndex, '') as string;
+	if (!boardId) {
+		throw new Error('Pinterest requires a Board ID. Enter the board to pin to.');
+	}
+	const nested = await buildNestedMedias.call(this, itemIndex);
 	const target: IDataObject = {
-		accountId: extractId(t.accountId),
-		medias: await buildMedias.call(this, itemIndex, t.medias),
+		accountId,
+		boardId,
+		mediaType: nested.mediaType,
+		medias: nested,
 	};
-	if (t.caption) {
-		target.caption = t.caption;
+	if (caption) {
+		target.description = caption;
 	}
 	return target;
 }
 
+const PLATFORM_TARGET_KEY: Record<Platform, string> = {
+	instagram: 'instagramTargets',
+	x: 'twitterTargets',
+	linkedin: 'linkedinTargets',
+	bluesky: 'blueskyTargets',
+	pinterest: 'pinterestTargets',
+	tiktok: 'tiktokTargets',
+	mastodon: 'mastodonTargets',
+	threads: 'threadsTargets',
+	facebook: 'facebookTargets',
+};
+
+const TARGET_BUILDERS: Record<Platform, (this: IExecuteFunctions, i: number) => Promise<IDataObject>> = {
+	instagram: buildInstagramTarget,
+	x: buildTwitterTarget,
+	linkedin: buildLinkedinTarget,
+	bluesky: buildBlueskyTarget,
+	pinterest: buildPinterestTarget,
+	tiktok: buildTiktokTarget,
+	mastodon: buildMastodonTarget,
+	threads: buildThreadsTarget,
+	facebook: buildFacebookTarget,
+};
+
 /**
- * Build the request body for POST /posts from the node's create-post
- * parameters. Each target is an account whose platform is encoded in the
- * account value (or looked up from `accountPlatforms` when the account was
- * entered By ID); targets are grouped into the per-platform arrays the
- * SocialRobot API expects.
+ * Build the request body for POST /posts from a publish node's parameters. The
+ * platform is fixed per node, so the account is simply the selected account id
+ * and the target is grouped under that platform's array. The SocialRobot API
+ * requires every target array to be present (even when empty), so all nine are
+ * sent; only the selected platform's array is populated.
  */
-export async function buildCreateBody(
+export async function buildPublishBody(
 	this: IExecuteFunctions,
 	itemIndex: number,
-	accountPlatforms: Map<string, string>,
+	platform: Platform,
 ): Promise<IDataObject> {
-	const publishMode = this.getNodeParameter('publishMode', itemIndex) as string;
+	const publishMode = this.getNodeParameter('publishMode', itemIndex, 'DRAFT') as string;
 
 	const scheduledFor: IDataObject = { publish: publishMode };
 	if (publishMode === 'SCHEDULE') {
 		scheduledFor.date = this.getNodeParameter('scheduleDate', itemIndex) as string;
 	}
 
-	const instagramTargets: IDataObject[] = [];
-	const twitterTargets: IDataObject[] = [];
-	const linkedinTargets: IDataObject[] = [];
-	const blueskyTargets: IDataObject[] = [];
-	const pinterestTargets: IDataObject[] = [];
-	const tiktokTargets: IDataObject[] = [];
-	const mastodonTargets: IDataObject[] = [];
-	const threadsTargets: IDataObject[] = [];
-	const facebookTargets: IDataObject[] = [];
+	const target = await TARGET_BUILDERS[platform].call(this, itemIndex);
 
-	const targets = toItems(this.getNodeParameter('targets', itemIndex, []));
-
-	if (targets.length === 0) {
-		throw new Error('Add at least one account. Click "Add Account" and select a connected account.');
+	const body: IDataObject = { scheduledFor };
+	for (const key of Object.values(PLATFORM_TARGET_KEY)) {
+		body[key] = [];
 	}
-
-	for (const t of targets) {
-		const raw = extractId(t.accountId);
-		if (!raw) {
-			throw new Error(
-				'Select an account to publish to. Pick from the list, or switch to "By ID" and enter an account ID.',
-			);
-		}
-
-		const { platform: valuePlatform, accountId } = splitAccountValue(raw);
-		const platform = valuePlatform ?? accountPlatforms.get(accountId);
-		if (!platform) {
-			throw new Error(
-				`Account "${accountId}" was not found among your connected accounts. Check the account ID or reconnect it in SocialRobot.`,
-			);
-		}
-
-		switch (platform) {
-			case 'instagram':
-				instagramTargets.push(await buildInstagramTarget.call(this, itemIndex, t));
-				break;
-			case 'x':
-				twitterTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
-				break;
-			case 'linkedin':
-				linkedinTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
-				break;
-			case 'bluesky':
-				blueskyTargets.push(await buildBlueskyTarget.call(this, itemIndex, t));
-				break;
-			case 'pinterest':
-				if (!(t.boardId as string)) {
-					throw new Error(
-						'Pinterest requires a Board ID. Enter the board to pin to under "Pinterest Board ID".',
-					);
-				}
-				pinterestTargets.push(await buildPinterestTarget.call(this, itemIndex, t));
-				break;
-			case 'tiktok':
-				tiktokTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
-				break;
-			case 'mastodon':
-				mastodonTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
-				break;
-			case 'threads':
-				threadsTargets.push(await buildCaptionMediaTarget.call(this, itemIndex, t));
-				break;
-			case 'facebook':
-				facebookTargets.push(await buildFacebookTarget.call(this, itemIndex, t));
-				break;
-			default:
-				throw new Error(`Unsupported platform "${platform}".`);
-		}
-	}
-
-	return {
-		scheduledFor,
-		instagramTargets,
-		twitterTargets,
-		linkedinTargets,
-		blueskyTargets,
-		pinterestTargets,
-		tiktokTargets,
-		mastodonTargets,
-		threadsTargets,
-		facebookTargets,
-	};
+	body[PLATFORM_TARGET_KEY[platform]] = [target];
+	return body;
 }
 
 /**

@@ -4,152 +4,13 @@ import type { INodeProperties } from 'n8n-workflow';
 // Shared display option filters
 // ---------------------------------------------------------------------------
 const showForPost = { resource: ['post'] };
-const showForPostCreate = { resource: ['post'], operation: ['create'] };
 const showForPostGetAll = { resource: ['post'], operation: ['getAll'] };
 const showForPostReschedule = { resource: ['post'], operation: ['reschedule'] };
 const showForAccount = { resource: ['account'] };
 
 // ---------------------------------------------------------------------------
-// Media collection (hidden for Bluesky, which is text-only)
-// ---------------------------------------------------------------------------
-const mediaCollection: INodeProperties = {
-	displayName: 'Media',
-	name: 'medias',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add Media',
-	},
-	default: {},
-	description: 'Media files to attach to this post',
-	displayOptions: { hide: { accountId: [{ _cnd: { startsWith: 'bluesky:' } }] } },
-	options: [
-		{
-			displayName: 'Alt Text',
-			name: 'altText',
-			type: 'string',
-			default: '',
-			description: 'Accessibility description for the media',
-		},
-		{
-			displayName: 'Binary Property',
-			name: 'binaryPropertyName',
-			type: 'string',
-			default: 'data',
-			description:
-				'Name of the binary property on the input item that holds the media (for example "data"). The file is uploaded to SocialRobot automatically.',
-			displayOptions: { show: { mediaSource: ['binary'] } },
-		},
-		{
-			displayName: 'Media Source',
-			name: 'mediaSource',
-			type: 'options',
-			default: 'url',
-			description: 'Attach the media from a public URL or from binary data on the input item',
-			options: [
-				{ name: 'By URL', value: 'url' },
-				{ name: 'From Binary Data', value: 'binary' },
-			],
-		},
-		{
-			displayName: 'Media Type',
-			name: 'mediaType',
-			type: 'options',
-			default: 'IMAGE',
-			description:
-				'The media format. Not every platform accepts every type (GIF is only supported on X and Mastodon).',
-			options: [
-				{ name: 'Image', value: 'IMAGE' },
-				{ name: 'Video', value: 'VIDEO' },
-				{ name: 'GIF', value: 'GIF' },
-			],
-		},
-		{
-			displayName: 'Media URL',
-			name: 'mediaUrl',
-			type: 'string',
-			default: '',
-			description: 'Public URL of the media file',
-			displayOptions: { show: { mediaSource: ['url'] } },
-		},
-	],
-};
-
-// ---------------------------------------------------------------------------
-// Create Post: single "Targets" collection. Each target is just an account;
-// the account picker returns a value that encodes the platform, so the
-// platform-specific fields appear based on the account the user selected
-// (mirroring how the SocialRobot composer derives platform from the account).
-// ---------------------------------------------------------------------------
-const targets: INodeProperties = {
-	displayName: 'Accounts',
-	name: 'targets',
-	type: 'collection',
-	typeOptions: {
-		multipleValues: true,
-		multipleValueButtonText: 'Add Account',
-	},
-	default: {},
-	description: 'Publish this post to one or more connected accounts',
-	displayOptions: { show: showForPostCreate },
-	options: [
-		{
-			displayName: 'Account',
-			name: 'accountId',
-			type: 'resourceLocator',
-			default: { mode: 'list', value: '' },
-			description: 'The connected SocialRobot account to publish to',
-			modes: [
-				{
-					displayName: 'From List',
-					name: 'list',
-					type: 'list',
-					placeholder: 'Select an account...',
-					typeOptions: {
-						searchListMethod: 'getAccounts',
-						searchable: true,
-					},
-				},
-				{
-					displayName: 'By ID',
-					name: 'id',
-					type: 'string',
-					placeholder: 'e.g. instagram-account-id-123',
-				},
-			],
-		},
-		{
-			displayName: 'Caption',
-			name: 'caption',
-			type: 'string',
-			typeOptions: { rows: 4 },
-			default: '',
-			description:
-				'The text or caption of the post. For Pinterest targets this is used as the pin description.',
-		},
-		mediaCollection,
-		{
-			displayName: 'Pinterest Board ID',
-			name: 'boardId',
-			type: 'string',
-			default: '',
-			description: 'The Pinterest board to pin to',
-			displayOptions: {
-				show: {
-					accountId: [
-						{ _cnd: { startsWith: 'pinterest:' } },
-						// Also show when the account was entered By ID (no platform
-						// prefix), since the platform is unknown in that case.
-						{ _cnd: { regex: '^[^:]*$' } },
-					],
-				},
-			},
-		},
-	],
-};
-
-// ---------------------------------------------------------------------------
-// Post resource description
+// Post resource description (management operations; publishing lives in the
+// per-platform "Publish to ..." nodes).
 // ---------------------------------------------------------------------------
 export const postDescription: INodeProperties[] = [
 	{
@@ -159,12 +20,6 @@ export const postDescription: INodeProperties[] = [
 		noDataExpression: true,
 		displayOptions: { show: showForPost },
 		options: [
-			{
-				name: 'Create',
-				value: 'create',
-				action: 'Create a post',
-				description: 'Create a post across one or more connected platforms',
-			},
 			{
 				name: 'Delete',
 				value: 'delete',
@@ -190,39 +45,8 @@ export const postDescription: INodeProperties[] = [
 				description: 'Change the scheduled publish time of a post',
 			},
 		],
-		default: 'create',
+		default: 'get',
 	},
-	// --- Create: scheduling ---
-	{
-		displayName: 'Schedule Type',
-		name: 'publishMode',
-		type: 'options',
-		noDataExpression: true,
-		displayOptions: { show: showForPostCreate },
-		options: [
-			{ name: 'Draft', value: 'DRAFT', description: 'Save as a draft without publishing' },
-			{ name: 'Publish Now', value: 'NOW', description: 'Publish immediately' },
-			{
-				name: 'Schedule',
-				value: 'SCHEDULE',
-				description: 'Publish at a specific date and time',
-			},
-		],
-		default: 'DRAFT',
-	},
-	{
-		displayName: 'Schedule Date',
-		name: 'scheduleDate',
-		type: 'dateTime',
-		default: '',
-		description:
-			'The date and time to publish. Sent as ISO 8601 with a timezone offset (for example 2026-08-20T09:00:00-03:00).',
-		displayOptions: {
-			show: { resource: ['post'], operation: ['create'], publishMode: ['SCHEDULE'] },
-		},
-	},
-	// --- Create: targets ---
-	targets,
 	// --- Get / Delete / Reschedule: post ID ---
 	{
 		displayName: 'Post ID',
