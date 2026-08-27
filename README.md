@@ -27,29 +27,32 @@ In short:
 
 ## Nodes
 
-The package ships ten nodes: one **SocialRobot** node for managing posts and accounts, and nine **Publish to ...** nodes, one per platform. Each publish node only shows the fields that platform actually supports, and its account picker only lists accounts on that platform.
+The package ships one node, **SocialRobot**. Pick a **Resource** to choose what it does:
 
-### Publish to ... (one node per platform)
+- A platform resource (**Instagram**, **X (Twitter)**, **LinkedIn**, **TikTok**, **Facebook**, **Pinterest**, **Bluesky**, **Mastodon**, **Threads**) publishes a post to that platform.
+- **Post** and **Account** manage posts and connected accounts.
 
-Each of these creates a single post for a connected account on that platform. Every node shares the same shape: an **Account** picker, a **Caption**, platform-specific media fields, and **Schedule Type** (Draft, Publish Now, or Schedule) with an optional **Schedule Date**.
+Because each platform is its own Resource, the node only shows the fields that platform actually supports, and the account picker only lists accounts on that platform.
 
-| Node | Media model |
+### Publish (one Resource per platform)
+
+Each platform resource has a single **Create** operation that publishes one post for a connected account on that platform. Every platform shares the same shape: an **Account** picker, a **Caption**, platform-specific media fields, and **Schedule Type** (Draft, Publish Now, or Schedule) with an optional **Schedule Date**.
+
+| Resource | Media model |
 | --- | --- |
-| Publish to Instagram | Single image or video (required) |
-| Publish to X (Twitter) | Multiple media, up to 4; GIF supported |
-| Publish to LinkedIn | Image or video post (required) |
-| Publish to TikTok | Photo or video post (required) |
-| Publish to Facebook | Optional media |
-| Publish to Pinterest | Image or video pin (required), plus a **Board ID** |
-| Publish to Bluesky | Text only |
-| Publish to Mastodon | Optional images/videos |
-| Publish to Threads | Optional media |
+| Instagram | Single image or video (required) |
+| X (Twitter) | Multiple media, up to 4; GIF supported |
+| LinkedIn | Image or video post (required) |
+| TikTok | Photo or video post (required) |
+| Facebook | Optional media |
+| Pinterest | Image or video pin (required), plus a **Board ID** |
+| Bluesky | Text only |
+| Mastodon | Optional images/videos |
+| Threads | Optional media |
 
 Media is attached either as a public URL or as binary data from the input item (uploaded to SocialRobot storage automatically).
 
-### SocialRobot
-
-Management operations for posts and accounts:
+### Post and Account (management)
 
 - **Post → Get** — Fetch a single post by ID.
 - **Post → Get Many** — List posts with optional filters (status, platform, scheduled date range) and cursor pagination, including a **Return All** option.
@@ -59,7 +62,7 @@ Management operations for posts and accounts:
 
 ## Credentials
 
-The nodes authenticate with a SocialRobot API key.
+The node authenticates with a SocialRobot API key.
 
 ### Prerequisites
 
@@ -86,22 +89,23 @@ Use the **Test** button to verify the credential. It calls `GET /accounts` and s
 
 ### Publish a scheduled post to X
 
-1. Add a **Publish to X (Twitter)** node.
-2. Pick your X account from the **Account** dropdown.
-3. Type the post text in **Caption**.
-4. Set **Schedule Type** to **Schedule** and choose a **Schedule Date**.
+1. Add a **SocialRobot** node.
+2. Set **Resource** to **X (Twitter)**.
+3. Pick your X account from the **Account** dropdown.
+4. Type the post text in **Caption**.
+5. Set **Schedule Type** to **Schedule** and choose a **Schedule Date**.
 
 The node returns the created post ID (`{ "id": "..." }`).
 
 ### Post media from binary data
 
 1. Add an **HTTP Request** node that downloads an image, with **Response Format** set to **File**. This saves the response as binary data under the `data` property.
-2. Add a **Publish to Instagram** node and pick your Instagram account.
+2. Add a **SocialRobot** node, set **Resource** to **Instagram**, and pick your Instagram account.
 3. Set **Media Source** to **From Binary Data** and leave **Binary Property** as `data`.
 
 The node uploads the binary file to SocialRobot storage automatically and uses the resulting URL in the post. To reference a public media URL instead, leave **Media Source** set to **By URL** and paste the URL into **Media URL**.
 
-For platforms with a **Media** collection (X, Threads, Facebook, TikTok, LinkedIn, Pinterest, Mastodon), click **Add Media** to attach one or more entries; each entry has its own **Media Source**, **Media Type**, and URL or binary property. For **Publish to Pinterest**, also set the **Pinterest Board ID**.
+For platforms with a **Media** collection (X, Threads, Facebook, TikTok, LinkedIn, Pinterest, Mastodon), click **Add Media** to attach one or more entries; each entry has its own **Media Source**, **Media Type**, and URL or binary property. For the **Pinterest** resource, also set the **Pinterest Board ID**.
 
 ### Filter scheduled posts
 
@@ -112,12 +116,17 @@ Add a **SocialRobot** node, set **Resource** to **Post** and **Operation** to **
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
 - [SocialRobot](https://socialrobot.io)
 - [SocialRobot API documentation](https://socialrobot.io/scheduler/api-docs)
+- [Workflow templates](https://github.com/socialrobot-io/n8n-socialrobot-templates) — 36 ready-to-import workflows
 
 ## Version history
 
+### 3.0.0
+
+Consolidated the package into a single **SocialRobot** node (n8n allows one regular node per package). Each platform is now a Resource with its own Create operation, platform-scoped fields, and platform-scoped account picker. The per-platform request shapes from 2.0.0 are unchanged.
+
 ### 2.0.0
 
-Split the single node into nine per-platform **Publish to ...** nodes plus a management-only **SocialRobot** node. Each publish node exposes only that platform's fields (no conditional gating), scopes its account picker to the platform, and sends the exact request shape the API expects per platform (nested media for LinkedIn/TikTok/Pinterest, name/size media for Mastodon, text-only for Bluesky).
+Split the single node into nine per-platform **Publish to ...** nodes plus a management-only **SocialRobot** node. Superseded by 3.0.0 after n8n review (one node per service).
 
 ### 1.0.5
 

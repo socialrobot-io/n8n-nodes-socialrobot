@@ -82,49 +82,51 @@ export async function uploadMedia(
 }
 
 /**
- * Account resource-locator source factory. Each publish node registers a
- * getter scoped to its platform, so the account picker only lists connected
- * accounts for that platform. The optional `filter` is the text the user types
- * in the picker.
+ * Account resource-locator source for the consolidated node. The single node
+ * exposes every platform as a Resource, so the picker reads the currently
+ * selected resource from the node parameters and only lists connected
+ * accounts for that platform. The optional `filter` is the text the user
+ * types in the picker.
  */
-export function makeAccountGetter(
-	platform: string,
-): (this: ILoadOptionsFunctions, filter?: string) => Promise<INodeListSearchResult> {
-	return async function (this: ILoadOptionsFunctions, filter?: string): Promise<INodeListSearchResult> {
-		const responseData = (await socialRobotApiRequest.call(
-			this,
-			'GET',
-			'/accounts',
-		)) as IDataObject[];
+export async function getAccounts(
+	this: ILoadOptionsFunctions,
+	filter?: string,
+): Promise<INodeListSearchResult> {
+	const resource = this.getNodeParameter('resource', 0) as string;
 
-		let accounts = Array.isArray(responseData) ? responseData : [];
+	const responseData = (await socialRobotApiRequest.call(
+		this,
+		'GET',
+		'/accounts',
+	)) as IDataObject[];
 
-		accounts = accounts.filter((account) => String(account.platform) === platform);
+	let accounts = Array.isArray(responseData) ? responseData : [];
 
-		if (filter) {
-			const needle = filter.toLowerCase();
-			accounts = accounts.filter((account) =>
-				[account.displayName, account.handle].some((value) =>
-					String(value ?? '')
-						.toLowerCase()
-						.includes(needle),
-				),
-			);
-		}
+	accounts = accounts.filter((account) => String(account.platform) === resource);
 
-		const results: INodeListSearchItems[] = accounts.map((account) => {
-			const displayName = (account.displayName as string) || '';
-			const handle = (account.handle as string) || '';
-			const accountId = account.id as string;
-			const label = [displayName, handle ? `@${handle}` : null].filter(Boolean).join(' · ');
+	if (filter) {
+		const needle = filter.toLowerCase();
+		accounts = accounts.filter((account) =>
+			[account.displayName, account.handle].some((value) =>
+				String(value ?? '')
+					.toLowerCase()
+					.includes(needle),
+			),
+		);
+	}
 
-			return {
-				name: label || accountId,
-				value: accountId,
-				url: (account.profileImage as string) || undefined,
-			};
-		});
+	const results: INodeListSearchItems[] = accounts.map((account) => {
+		const displayName = (account.displayName as string) || '';
+		const handle = (account.handle as string) || '';
+		const accountId = account.id as string;
+		const label = [displayName, handle ? `@${handle}` : null].filter(Boolean).join(' · ');
 
-		return { results };
-	};
+		return {
+			name: label || accountId,
+			value: accountId,
+			url: (account.profileImage as string) || undefined,
+		};
+	});
+
+	return { results };
 }

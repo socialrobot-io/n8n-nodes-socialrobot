@@ -7,9 +7,15 @@ import {
 	type INodeType,
 	type INodeTypeDescription,
 } from 'n8n-workflow';
-import { accountDescription, postDescription } from './descriptions';
-import { buildListQuery } from './GenericFunctions';
-import { socialRobotApiRequest } from './transport';
+import {
+	accountDescription,
+	postDescription,
+	publishDescriptions,
+	PUBLISH_RESOURCES,
+	resourceDescription,
+} from './descriptions';
+import { buildListQuery, buildPublishBody, type Platform } from './GenericFunctions';
+import { getAccounts, socialRobotApiRequest } from './transport';
 
 /**
  * Fetch every post across all pages when Return All is enabled. The SocialRobot
@@ -50,27 +56,22 @@ export class SocialRobot implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"]}}',
 		description:
-			'Manage SocialRobot posts and connected accounts: get, list, delete, and reschedule posts, and list accounts',
+			'Publish posts to Instagram, X, LinkedIn, TikTok, Facebook, Pinterest, Bluesky, Mastodon, and Threads, and manage SocialRobot posts and connected accounts',
 		defaults: { name: 'SocialRobot' },
 		usableAsTool: true,
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
 		credentials: [{ name: 'socialRobotApi', required: true }],
 		properties: [
-			{
-				displayName: 'Resource',
-				name: 'resource',
-				type: 'options',
-				noDataExpression: true,
-				options: [
-					{ name: 'Post', value: 'post' },
-					{ name: 'Account', value: 'account' },
-				],
-				default: 'post',
-			},
+			resourceDescription,
+			...publishDescriptions,
 			...postDescription,
 			...accountDescription,
 		],
+	};
+
+	methods = {
+		listSearch: { getAccounts },
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -84,7 +85,14 @@ export class SocialRobot implements INodeType {
 			try {
 				let responseData: unknown;
 
-				if (resource === 'account') {
+				if (PUBLISH_RESOURCES.includes(resource as Platform)) {
+					// One of the nine publish platforms: build the per-platform
+					// body and create a post. The API requires every target array
+					// to be present; buildPublishBody sends all nine with only
+					// the selected platform's populated.
+					const body = await buildPublishBody.call(this, i, resource as Platform);
+					responseData = await socialRobotApiRequest.call(this, 'POST', '/posts', body);
+				} else if (resource === 'account') {
 					responseData = await socialRobotApiRequest.call(this, 'GET', '/accounts');
 				} else if (resource === 'post' && operation === 'get') {
 					const postId = this.getNodeParameter('postId', i) as string;

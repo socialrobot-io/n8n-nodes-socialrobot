@@ -1,4 +1,101 @@
 import type { INodeProperties } from 'n8n-workflow';
+import type { Platform } from './GenericFunctions';
+import { publishProperties } from './publishFields';
+
+// ---------------------------------------------------------------------------
+// Resource + operation model. The SocialRobot service is exposed as ONE node:
+// each platform is a Resource with a single Create (publish) operation, plus
+// Post and Account management resources. This matches n8n's one-node-per-
+// service pattern (Notion, HubSpot, Airtable) and keeps the field schema
+// platform-dependent via displayOptions on the resource.
+// ---------------------------------------------------------------------------
+
+export const PLATFORM_LABELS: Record<Platform, string> = {
+	instagram: 'Instagram',
+	x: 'X (Twitter)',
+	linkedin: 'LinkedIn',
+	tiktok: 'TikTok',
+	facebook: 'Facebook',
+	pinterest: 'Pinterest',
+	bluesky: 'Bluesky',
+	mastodon: 'Mastodon',
+	threads: 'Threads',
+};
+
+export const PUBLISH_RESOURCES: Platform[] = [
+	'instagram',
+	'x',
+	'linkedin',
+	'tiktok',
+	'facebook',
+	'pinterest',
+	'bluesky',
+	'mastodon',
+	'threads',
+];
+
+/** Gate a set of fields so they only render for one resource. */
+function gateForResource(fields: INodeProperties[], resource: string): INodeProperties[] {
+	return fields.map((field) => ({
+		...field,
+		displayOptions: {
+			show: {
+				resource: [resource],
+				...(field.displayOptions?.show ?? {}),
+			},
+		},
+	}));
+}
+
+function platformOperation(resource: string, label: string): INodeProperties {
+	return {
+		displayName: 'Operation',
+		name: 'operation',
+		type: 'options',
+		noDataExpression: true,
+		displayOptions: { show: { resource: [resource] } },
+		options: [
+			{
+				name: 'Create',
+				value: 'create',
+				action: `Publish a post to ${label}`,
+				description: `Publish a post to ${label} via SocialRobot`,
+			},
+		],
+		default: 'create',
+	};
+}
+
+export const resourceDescription: INodeProperties = {
+	displayName: 'Resource',
+	name: 'resource',
+	type: 'options',
+	noDataExpression: true,
+	options: [
+		{ name: 'Account', value: 'account' },
+		{ name: 'Bluesky', value: 'bluesky' },
+		{ name: 'Facebook', value: 'facebook' },
+		{ name: 'Instagram', value: 'instagram' },
+		{ name: 'LinkedIn', value: 'linkedin' },
+		{ name: 'Mastodon', value: 'mastodon' },
+		{ name: 'Pinterest', value: 'pinterest' },
+		{ name: 'Post', value: 'post' },
+		// eslint-disable-next-line n8n-nodes-base/node-param-resource-with-plural-option -- Threads is the platform's official name and the API's platform key
+		{ name: 'Threads', value: 'threads' },
+		{ name: 'TikTok', value: 'tiktok' },
+		{ name: 'X (Twitter)', value: 'x' },
+	],
+	default: 'instagram',
+};
+
+/**
+ * One operation field plus the platform-specific publish fields per platform,
+ * each gated on its resource so only the selected platform's fields render.
+ */
+export const publishDescriptions: INodeProperties[] = PUBLISH_RESOURCES.flatMap((platform) => {
+	const label = PLATFORM_LABELS[platform];
+	return [platformOperation(platform, label), ...gateForResource(publishProperties(platform), platform)];
+});
 
 // ---------------------------------------------------------------------------
 // Shared display option filters
@@ -9,8 +106,7 @@ const showForPostReschedule = { resource: ['post'], operation: ['reschedule'] };
 const showForAccount = { resource: ['account'] };
 
 // ---------------------------------------------------------------------------
-// Post resource description (management operations; publishing lives in the
-// per-platform "Publish to ..." nodes).
+// Post resource description (management operations)
 // ---------------------------------------------------------------------------
 export const postDescription: INodeProperties[] = [
 	{
