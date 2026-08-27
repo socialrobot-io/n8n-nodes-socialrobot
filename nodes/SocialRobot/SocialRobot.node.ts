@@ -51,7 +51,8 @@ export class SocialRobot implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SocialRobot',
 		name: 'socialRobot',
-		icon: { light: 'file:socialrobot.png', dark: 'file:socialrobot.dark.png' },
+		// eslint-disable-next-line n8n-nodes-base/node-class-description-icon-not-svg -- the SocialRobot mascot is a raster brand asset; a single icon is used for both themes
+		icon: 'file:socialrobot.png',
 		group: ['input'],
 		version: 1,
 		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"]}}',
