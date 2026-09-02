@@ -51,8 +51,8 @@ export class SocialRobot implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'SocialRobot',
 		name: 'socialRobot',
-		// the SocialRobot mascot is a raster clay render with no vector source, so both themes ship PNGs; the dark variant wraps the original artwork in a white band for contrast
-		icon: { light: 'file:socialrobot.png', dark: 'file:socialrobot-dark.png' },
+		// the SocialRobot mascot is a raster clay render with no vector source, so both themes ship PNGs; the dark variant wraps the original artwork in a white band for contrast (n8n tooling resolves the dark file as <name>.dark.png)
+		icon: { light: 'file:socialrobot.png', dark: 'file:socialrobot.dark.png' },
 		group: ['input'],
 		version: 1,
 		subtitle: '={{$parameter["resource"] + " - " + $parameter["operation"]}}',
