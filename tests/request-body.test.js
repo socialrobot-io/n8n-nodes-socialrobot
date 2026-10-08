@@ -52,18 +52,18 @@ async function testTikTokDirectPostWithPrivacy() {
 		postMode: 'DIRECT_POST',
 		privacyLevel: 'PUBLIC',
 		isAigc: true,
-		disableComment: true,
-		disableDuet: true,
-		disableStitch: true,
+		allowComment: false,
+		allowDuet: false,
+		allowStitch: false,
 	});
 	const body = await buildBody(ctx, 'tiktok');
 	const target = body.tiktokTargets[0];
 	assert.strictEqual(target.postMode, 'DIRECT_POST');
 	assert.strictEqual(target.privacyLevel, 'PUBLIC');
 	assert.strictEqual(target.isAigc, true);
-	assert.strictEqual(target.disableComment, true);
-	assert.strictEqual(target.disableDuet, true);
-	assert.strictEqual(target.disableStitch, true);
+	assert.strictEqual(target.disableComment, true, 'allowComment=false → disableComment=true');
+	assert.strictEqual(target.disableDuet, true, 'allowDuet=false → disableDuet=true');
+	assert.strictEqual(target.disableStitch, true, 'allowStitch=false → disableStitch=true');
 }
 
 async function testInstagramReel() {
