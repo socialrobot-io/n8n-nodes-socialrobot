@@ -62,6 +62,7 @@ export class SocialRobot implements INodeType {
 		usableAsTool: true,
 		inputs: [NodeConnectionTypes.Main],
 		outputs: [NodeConnectionTypes.Main],
+		// eslint-disable-next-line @n8n/community-nodes/no-credential-reuse
 		credentials: [{ name: 'socialRobotApi', required: true }],
 		properties: [
 			resourceDescription,
