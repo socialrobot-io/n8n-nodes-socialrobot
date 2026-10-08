@@ -272,10 +272,14 @@ async function buildTiktokTarget(this: IExecuteFunctions, itemIndex: number): Pr
 			);
 		}
 		target.privacyLevel = privacyLevel;
-		target.disableComment = this.getNodeParameter('disableComment', itemIndex, false) as boolean;
+		// TikTok guidelines prefer "Allow ..." toggles off by default; map to disable flags
+		const allowComment = this.getNodeParameter('allowComment', itemIndex, false) as boolean;
+		target.disableComment = !allowComment;
 		if (isVideo) {
-			target.disableDuet = this.getNodeParameter('disableDuet', itemIndex, false) as boolean;
-			target.disableStitch = this.getNodeParameter('disableStitch', itemIndex, false) as boolean;
+			const allowDuet = this.getNodeParameter('allowDuet', itemIndex, false) as boolean;
+			const allowStitch = this.getNodeParameter('allowStitch', itemIndex, false) as boolean;
+			target.disableDuet = !allowDuet;
+			target.disableStitch = !allowStitch;
 			target.isAigc = this.getNodeParameter('isAigc', itemIndex, false) as boolean;
 		}
 	}
