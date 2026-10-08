@@ -168,6 +168,122 @@ export function instagramMediaFields(): INodeProperties[] {
 	];
 }
 
+/**
+ * TikTok publish options (3.1). Field names and enums mirror the SocialRobot
+ * REST API (`tiktokTargets[]` / `POST /tiktok/create`). Privacy, interaction
+ * and AI-label settings only apply to Direct Post: inbox uploads are finished
+ * in the TikTok app, so the API does not send them.
+ */
+export function tiktokFields(): INodeProperties[] {
+	const directPostOnly = { show: { postMode: ['DIRECT_POST'] } };
+	return [
+		{
+			displayName: 'Post Mode',
+			name: 'postMode',
+			type: 'options',
+			noDataExpression: true,
+			options: [
+				{
+					name: 'Direct Post',
+					value: 'DIRECT_POST',
+					description: 'Publish to the TikTok profile when the post runs',
+				},
+				{
+					name: 'Send to Inbox (Draft)',
+					value: 'UPLOAD',
+					description:
+						'Send the media to the TikTok inbox as a draft. The creator finishes and posts it in the TikTok app.',
+				},
+			],
+			default: 'UPLOAD',
+			description: 'How SocialRobot hands the post to TikTok',
+		},
+		{
+			displayName:
+				"By posting, you agree to TikTok's Music Usage Confirmation. TikTok may take a few minutes to process the post before it shows on the profile.",
+			name: 'tiktokDirectPostNotice',
+			type: 'notice',
+			default: '',
+			displayOptions: directPostOnly,
+		},
+		{
+			displayName: 'Privacy Level',
+			name: 'privacyLevel',
+			type: 'options',
+			required: true,
+			options: [
+				{ name: 'Followers', value: 'FOLLOWERS' },
+				{ name: 'Friends', value: 'FRIENDS' },
+				{ name: 'Private (Only Me)', value: 'PRIVATE' },
+				{ name: 'Public (Everyone)', value: 'PUBLIC' },
+			],
+			// eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-options -- TikTok requires an explicit privacy choice with no preselected value
+			default: '',
+			description:
+				'Who can see the post. Must be one of the options TikTok allows for this account (creator info). Required for Direct Post.',
+			displayOptions: directPostOnly,
+		},
+		{
+			displayName: 'AI-Generated Content',
+			name: 'isAigc',
+			type: 'boolean',
+			default: false,
+			description:
+				'Whether TikTok labels the video "Creator labeled as AI-generated". Video Direct Post only. For inbox drafts, turn the label on in the TikTok app.',
+			displayOptions: directPostOnly,
+		},
+		{
+			displayName: 'Disable Comments',
+			name: 'disableComment',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to turn comments off for this post',
+			displayOptions: directPostOnly,
+		},
+		{
+			displayName: 'Disable Duet',
+			name: 'disableDuet',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to turn Duet off. Videos only.',
+			displayOptions: directPostOnly,
+		},
+		{
+			displayName: 'Disable Stitch',
+			name: 'disableStitch',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to turn Stitch off. Videos only.',
+			displayOptions: directPostOnly,
+		},
+		{
+			displayName: 'Title',
+			name: 'title',
+			type: 'string',
+			default: '',
+			description: 'Title for photo (slideshow) posts, up to 90 characters. Leave empty for videos.',
+		},
+	];
+}
+
+/** "Post as Reel" toggle for Instagram videos and Facebook (3.1). Maps to `isReel`. */
+export function reelField(platform: 'instagram' | 'facebook'): INodeProperties {
+	const field: INodeProperties = {
+		displayName: 'Post as Reel',
+		name: 'isReel',
+		type: 'boolean',
+		default: false,
+		description:
+			platform === 'instagram'
+				? 'Whether to publish the video as an Instagram Reel instead of a feed video'
+				: 'Whether to publish as a Facebook Reel. Needs exactly one vertical video of 3-90 seconds.',
+	};
+	if (platform === 'instagram') {
+		field.displayOptions = { show: { mediaType: ['VIDEO'] } };
+	}
+	return field;
+}
+
 export function schedulingFields(): INodeProperties[] {
 	return [
 		{
@@ -210,7 +326,13 @@ export function publishProperties(platform: Platform): INodeProperties[] {
 			fields.push(captionField());
 			break;
 		case 'instagram':
-			fields.push(captionField(), ...instagramMediaFields());
+			fields.push(captionField(), ...instagramMediaFields(), reelField('instagram'));
+			break;
+		case 'tiktok':
+			fields.push(captionField(), mediaCollection(false), ...tiktokFields());
+			break;
+		case 'facebook':
+			fields.push(captionField(), mediaCollection(false), reelField('facebook'));
 			break;
 		case 'pinterest':
 			fields.push(boardIdField(), captionField('The pin description.'), mediaCollection(false));
@@ -219,7 +341,7 @@ export function publishProperties(platform: Platform): INodeProperties[] {
 			fields.push(captionField(), mediaCollection(true));
 			break;
 		default:
-			// linkedin, tiktok, mastodon, threads, facebook
+			// linkedin, mastodon, threads
 			fields.push(captionField(), mediaCollection(false));
 			break;
 	}

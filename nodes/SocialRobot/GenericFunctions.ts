@@ -195,7 +195,11 @@ async function buildInstagramTarget(this: IExecuteFunctions, itemIndex: number):
 		throw new Error('Instagram requires media. Provide a media URL or binary data.');
 	}
 	const mediaType = this.getNodeParameter('mediaType', itemIndex, 'IMAGE') as string;
-	return { accountId, caption, mediaType, mediaUrl: url };
+	const target: IDataObject = { accountId, caption, mediaType, mediaUrl: url };
+	if (mediaType === 'VIDEO') {
+		target.isReel = this.getNodeParameter('isReel', itemIndex, false) as boolean;
+	}
+	return target;
 }
 
 async function buildTwitterTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
@@ -210,9 +214,16 @@ async function buildThreadsTarget(this: IExecuteFunctions, itemIndex: number): P
 
 async function buildFacebookTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
 	const { accountId, caption } = baseTarget.call(this, itemIndex);
-	const target: IDataObject = { accountId, medias: await buildFlatMedias.call(this, itemIndex) };
+	const medias = await buildFlatMedias.call(this, itemIndex);
+	const target: IDataObject = { accountId, medias };
 	if (caption) {
 		target.caption = caption;
+	}
+	if (this.getNodeParameter('isReel', itemIndex, false) as boolean) {
+		if (medias.length !== 1 || medias[0].mediaType !== 'VIDEO') {
+			throw new Error('Facebook Reels need exactly one video. Set one media entry with Media Type "Video".');
+		}
+		target.isReel = true;
 	}
 	return target;
 }
@@ -226,9 +237,49 @@ async function buildMastodonTarget(this: IExecuteFunctions, itemIndex: number): 
 	return { accountId, caption, medias: await buildMastodonMedias.call(this, itemIndex) };
 }
 
+const TIKTOK_TITLE_MAX = 90;
+
 async function buildTiktokTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
 	const { accountId, caption } = baseTarget.call(this, itemIndex);
-	return { accountId, caption, medias: await buildNestedMedias.call(this, itemIndex) };
+	const medias = await buildNestedMedias.call(this, itemIndex);
+	const isVideo = medias.mediaType === 'VIDEO';
+	const count = (medias.medias as IDataObject[]).length;
+	if (isVideo && count !== 1) {
+		throw new Error('TikTok video posts take exactly one video.');
+	}
+	if (!isVideo && count > 35) {
+		throw new Error(`TikTok photo posts take 1-35 images (got ${count}).`);
+	}
+
+	const postMode = this.getNodeParameter('postMode', itemIndex, 'UPLOAD') as string;
+	const target: IDataObject = { accountId, caption, medias, postMode };
+
+	const title = ((this.getNodeParameter('title', itemIndex, '') as string) ?? '').trim();
+	if (title) {
+		if (title.length > TIKTOK_TITLE_MAX) {
+			throw new Error(`TikTok titles can be at most ${TIKTOK_TITLE_MAX} characters (got ${title.length}).`);
+		}
+		target.title = title;
+	}
+
+	// Inbox uploads are finished in the TikTok app: privacy, interaction and
+	// AI-label settings are only sent for Direct Post.
+	if (postMode === 'DIRECT_POST') {
+		const privacyLevel = this.getNodeParameter('privacyLevel', itemIndex, '') as string;
+		if (!privacyLevel) {
+			throw new Error(
+				'Direct Post needs a Privacy Level. Pick one TikTok allows for this account, or set Post Mode to "Send to Inbox (Draft)".',
+			);
+		}
+		target.privacyLevel = privacyLevel;
+		target.disableComment = this.getNodeParameter('disableComment', itemIndex, false) as boolean;
+		if (isVideo) {
+			target.disableDuet = this.getNodeParameter('disableDuet', itemIndex, false) as boolean;
+			target.disableStitch = this.getNodeParameter('disableStitch', itemIndex, false) as boolean;
+			target.isAigc = this.getNodeParameter('isAigc', itemIndex, false) as boolean;
+		}
+	}
+	return target;
 }
 
 async function buildLinkedinTarget(this: IExecuteFunctions, itemIndex: number): Promise<IDataObject> {
