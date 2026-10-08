@@ -196,6 +196,9 @@ async function buildInstagramTarget(this: IExecuteFunctions, itemIndex: number):
 	}
 	const mediaType = this.getNodeParameter('mediaType', itemIndex, 'IMAGE') as string;
 	const target: IDataObject = { accountId, caption, mediaType, mediaUrl: url };
+	if (this.getNodeParameter('isAiGenerated', itemIndex, false) as boolean) {
+		target.isAiGenerated = true;
+	}
 	if (mediaType === 'VIDEO') {
 		target.isReel = this.getNodeParameter('isReel', itemIndex, false) as boolean;
 	}

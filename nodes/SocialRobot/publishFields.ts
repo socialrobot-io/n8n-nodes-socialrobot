@@ -266,6 +266,21 @@ export function tiktokFields(): INodeProperties[] {
 	];
 }
 
+/**
+ * Instagram AI-content label (3.1.1). Maps to `isAiGenerated` on the Instagram
+ * target, which the API sends to Meta as `is_ai_generated=true` when set.
+ */
+export function instagramAiLabelField(): INodeProperties {
+	return {
+		displayName: 'AI-Generated Content',
+		name: 'isAiGenerated',
+		type: 'boolean',
+		default: false,
+		description:
+			'Whether Instagram labels this post as AI-generated. Applies to image and video posts.',
+	};
+}
+
 /** "Post as Reel" toggle for Instagram videos and Facebook (3.1). Maps to `isReel`. */
 export function reelField(platform: 'instagram' | 'facebook'): INodeProperties {
 	const field: INodeProperties = {
@@ -326,7 +341,12 @@ export function publishProperties(platform: Platform): INodeProperties[] {
 			fields.push(captionField());
 			break;
 		case 'instagram':
-			fields.push(captionField(), ...instagramMediaFields(), reelField('instagram'));
+			fields.push(
+				captionField(),
+				...instagramMediaFields(),
+				instagramAiLabelField(),
+				reelField('instagram'),
+			);
 			break;
 		case 'tiktok':
 			fields.push(captionField(), mediaCollection(false), ...tiktokFields());

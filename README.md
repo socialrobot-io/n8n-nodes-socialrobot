@@ -41,7 +41,7 @@ Each platform resource has a single **Create** operation that publishes one post
 | Resource | Media model |
 | --- | --- |
 | Instagram | Single image or video (required) |
-| Instagram (Reels) | Toggle **Post as Reel** for videos |
+| Instagram (options) | Toggle **Post as Reel** for videos and **AI-Generated Content** for AI media |
 | X (Twitter) | Multiple media, up to 4; GIF supported |
 | LinkedIn | Image or video post (required) |
 | TikTok | Photo or video post (required); see TikTok options below |
@@ -124,6 +124,15 @@ For TikTok, the node now includes:
 
 Inbox uploads are finished in the TikTok app, so privacy and interaction settings only apply to Direct Post.
 
+## Instagram options (3.1.1)
+
+For an Instagram image or video post:
+
+- **Post as Reel** (videos): publishes the video as a Reel instead of a feed video.
+- **AI-Generated Content**: labels the post as AI-generated in Instagram. Turn this on for any media produced by an AI model.
+
+Both toggles map to the SocialRobot API (`isReel` and `isAiGenerated`); the AI label is sent to Instagram as `is_ai_generated`.
+
 ## Resources
 
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
@@ -132,6 +141,10 @@ Inbox uploads are finished in the TikTok app, so privacy and interaction setting
 - [Workflow templates](https://github.com/socialrobot-io/n8n-socialrobot-templates) — 36 ready-to-import workflows
 
 ## Version history
+
+### 3.1.1
+
+Added an **AI-Generated Content** toggle to the Instagram resource. It maps to the API `isAiGenerated` field, which Instagram receives as `is_ai_generated`, so AI-made image and video posts carry the platform's AI label. No other behavior changes.
 
 ### 3.0.0
 

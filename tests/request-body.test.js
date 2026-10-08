@@ -81,6 +81,47 @@ async function testInstagramReel() {
 	assert.strictEqual(target.isReel, true);
 }
 
+async function testInstagramAiLabelVideo() {
+	const ctx = makeCtx({
+		accountId: 'acct1',
+		caption: 'ig',
+		mediaSource: 'url',
+		mediaType: 'VIDEO',
+		mediaUrl: 'https://example.com/v.mp4',
+		isAiGenerated: true,
+		isReel: true,
+	});
+	const target = (await buildBody(ctx, 'instagram')).instagramTargets[0];
+	assert.strictEqual(target.isAiGenerated, true, 'AI label should be sent for a video');
+	assert.strictEqual(target.isReel, true, 'AI label and Reel should coexist');
+}
+
+async function testInstagramAiLabelImage() {
+	const ctx = makeCtx({
+		accountId: 'acct1',
+		caption: 'ig',
+		mediaSource: 'url',
+		mediaType: 'IMAGE',
+		mediaUrl: 'https://example.com/i.jpg',
+		isAiGenerated: true,
+	});
+	const target = (await buildBody(ctx, 'instagram')).instagramTargets[0];
+	assert.strictEqual(target.isAiGenerated, true, 'AI label should be sent for an image');
+	assert.ok(!('isReel' in target), 'isReel stays video-only');
+}
+
+async function testInstagramAiLabelOffByDefault() {
+	const ctx = makeCtx({
+		accountId: 'acct1',
+		caption: 'ig',
+		mediaSource: 'url',
+		mediaType: 'IMAGE',
+		mediaUrl: 'https://example.com/i.jpg',
+	});
+	const target = (await buildBody(ctx, 'instagram')).instagramTargets[0];
+	assert.ok(!('isAiGenerated' in target), 'isAiGenerated should be omitted when off');
+}
+
 async function testFacebookReel() {
 	const ctx = makeCtx({
 		accountId: 'acct1',
@@ -149,6 +190,9 @@ async function run() {
 	await testTikTokInboxDraft();
 	await testTikTokDirectPostWithPrivacy();
 	await testInstagramReel();
+	await testInstagramAiLabelVideo();
+	await testInstagramAiLabelImage();
+	await testInstagramAiLabelOffByDefault();
 	await testFacebookReel();
 	await testFacebookReelInvalid();
 	await testTikTokDirectMissingPrivacy();
