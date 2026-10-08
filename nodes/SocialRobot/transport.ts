@@ -7,6 +7,8 @@ import type {
 	INodeListSearchItems,
 	INodeListSearchResult,
 } from 'n8n-workflow';
+import { NodeOperationError } from 'n8n-workflow';
+import type { INode } from 'n8n-workflow';
 
 type ApiRequestFunctions = IExecuteFunctions | ILoadOptionsFunctions;
 
@@ -41,7 +43,23 @@ export async function socialRobotApiRequest(
 		options.qs = qs;
 	}
 
-	return this.helpers.httpRequestWithAuthentication.call(this, 'socialRobotApi', options);
+	try {
+		return await this.helpers.httpRequestWithAuthentication.call(this, 'socialRobotApi', options);
+	} catch (error) {
+		// Improve error messaging by surfacing API-provided details (e.g. 403 plan limits)
+		const err = error as unknown as IDataObject;
+		const response = (err as IDataObject).response as IDataObject | undefined;
+		const body = (response?.body as IDataObject) ?? (err.error as IDataObject) ?? {};
+		const description = (body.description as string) || (body.message as string);
+		if (description) {
+			// Wrap in a NodeOperationError so n8n shows the API's description
+			const node = (this as unknown as { getNode: () => INode }).getNode();
+			throw new NodeOperationError(node, description);
+		}
+		// Fall back to the original error message
+		const node = (this as unknown as { getNode: () => INode }).getNode();
+		throw new NodeOperationError(node, (error as Error).message);
+	}
 }
 
 /**
