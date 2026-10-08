@@ -41,10 +41,11 @@ Each platform resource has a single **Create** operation that publishes one post
 | Resource | Media model |
 | --- | --- |
 | Instagram | Single image or video (required) |
+| Instagram (Reels) | Toggle **Post as Reel** for videos |
 | X (Twitter) | Multiple media, up to 4; GIF supported |
 | LinkedIn | Image or video post (required) |
-| TikTok | Photo or video post (required) |
-| Facebook | Optional media |
+| TikTok | Photo or video post (required); see TikTok options below |
+| Facebook | Optional media; toggle **Post as Reel** (validates exactly one video) |
 | Pinterest | Image or video pin (required), plus a **Board ID** |
 | Bluesky | Text only |
 | Mastodon | Optional images/videos |
@@ -111,6 +112,18 @@ For platforms with a **Media** collection (X, Threads, Facebook, TikTok, LinkedI
 
 Add a **SocialRobot** node, set **Resource** to **Post** and **Operation** to **Get Many**, then add a **Filters** entry with **Status** = **Scheduled** to list everything waiting to publish.
 
+## TikTok options (3.1.0)
+
+For TikTok, the node now includes:
+
+- Post Mode: **Direct Post** or **Send to Inbox (Draft)** (default draft)
+- Privacy Level (Direct Post only): Followers, Friends, Private, Public
+- Interaction controls (Direct Post only): Disable Comments, Disable Duet, Disable Stitch
+- AI-Generated Content label (Direct Post video only)
+- Title (photo/slideshow posts, up to 90 characters)
+
+Inbox uploads are finished in the TikTok app, so privacy and interaction settings only apply to Direct Post.
+
 ## Resources
 
 - [n8n community nodes documentation](https://docs.n8n.io/integrations/community-nodes/)
@@ -123,6 +136,10 @@ Add a **SocialRobot** node, set **Resource** to **Post** and **Operation** to **
 ### 3.0.0
 
 Consolidated the package into a single **SocialRobot** node (n8n allows one regular node per package). Each platform is now a Resource with its own Create operation, platform-scoped fields, and platform-scoped account picker. The per-platform request shapes from 2.0.0 are unchanged.
+
+### 3.1.0
+
+TikTok post options and Instagram/Facebook Reel flags. Also improves error messages from the API.
 
 ### 2.0.0
 

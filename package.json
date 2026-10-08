@@ -1,6 +1,6 @@
 {
 	"name": "@socialrobot-io/n8n-nodes-socialrobot",
-	"version": "3.0.3",
+	"version": "3.1.0",
 	"description": "n8n community node for SocialRobot.io: schedule and publish posts across Instagram, X, LinkedIn, TikTok, Facebook, Pinterest, Bluesky, Mastodon, and Threads",
 	"license": "MIT",
 	"homepage": "https://socialrobot.io",
@@ -27,7 +27,8 @@
 		"lint": "n8n-node lint",
 		"lint:fix": "n8n-node lint --fix",
 		"release": "n8n-node release",
-		"prepublishOnly": "n8n-node prerelease"
+		"prepublishOnly": "n8n-node prerelease",
+		"test": "node tests/request-body.test.js"
 	},
 	"files": [
 		"dist"
