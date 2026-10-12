@@ -117,7 +117,7 @@ Add a **SocialRobot** node, set **Resource** to **Post** and **Operation** to **
 For TikTok, the node now includes:
 
 - Post Mode: **Direct Post** or **Send to Inbox (Draft)** (default draft)
-- Privacy Level (Direct Post only): Followers, Friends, Private, Public
+- Privacy Level (Direct Post only): Followers (default), Friends, Private, Public
 - Interaction controls (Direct Post only): Disable Comments, Disable Duet, Disable Stitch
 - AI-Generated Content label (Direct Post video only)
 - Title (photo/slideshow posts, up to 90 characters)
@@ -141,6 +141,10 @@ Both toggles map to the SocialRobot API (`isReel` and `isAiGenerated`); the AI l
 - [Workflow templates](https://github.com/socialrobot-io/n8n-socialrobot-templates) — 36 ready-to-import workflows
 
 ## Version history
+
+### 3.1.2
+
+Fixed the TikTok **Privacy Level** field: its default is now a valid option value (**Followers**). The previous empty-string default failed the n8n community-node scanner gate, which does not honour inline eslint-disable comments. Behavior is otherwise unchanged; Direct Post still sends the selected privacy level, and inbox uploads still ignore it.
 
 ### 3.1.1
 

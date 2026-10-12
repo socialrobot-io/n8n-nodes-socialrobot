@@ -217,10 +217,9 @@ export function tiktokFields(): INodeProperties[] {
 				{ name: 'Private (Only Me)', value: 'PRIVATE' },
 				{ name: 'Public (Everyone)', value: 'PUBLIC' },
 			],
-			// eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-options -- TikTok requires an explicit privacy choice with no preselected value
-			default: '',
+			default: 'FOLLOWERS',
 			description:
-				'Who can see the post. Must be one of the options TikTok allows for this account (creator info). Required for Direct Post.',
+				'Who can see the post. Must be one of the options TikTok allows for this account (creator info). Required for Direct Post. Defaults to Followers; choose another value to widen or narrow the audience.',
 			displayOptions: directPostOnly,
 		},
 		{
